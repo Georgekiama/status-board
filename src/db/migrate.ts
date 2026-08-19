@@ -1,5 +1,11 @@
 import { fileURLToPath } from "node:url";
-import { getDbHandle, PGLITE_MIGRATOR_MODULE, type Db, type DriverKind } from "./client";
+import {
+  getDbHandle,
+  PGLITE_MIGRATOR_MODULE,
+  PG_MIGRATOR_MODULE,
+  type Db,
+  type DriverKind,
+} from "./client";
 
 export const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
@@ -23,7 +29,10 @@ export async function applyMigrations(db: Db, driver: DriverKind): Promise<void>
       return;
     }
     default: {
-      const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+      // Non-literal specifier: keeps `pg` out of the production bundle.
+      const { migrate } = (await import(
+        PG_MIGRATOR_MODULE
+      )) as typeof import("drizzle-orm/node-postgres/migrator");
       await migrate(db as never, config);
       return;
     }

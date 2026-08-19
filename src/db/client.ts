@@ -11,13 +11,27 @@ export type Db = NodePgDatabase<typeof schema>;
 export type DriverKind = "neon" | "postgres" | "pglite";
 
 /**
- * Development-only module specifiers, built at runtime so that bundlers cannot
- * follow them into the production serverless bundle. See the comment at the
- * pglite branch of createHandle().
+ * Specifiers for the drivers that production never uses, assembled at runtime so
+ * that no bundler can follow them into the serverless function.
+ *
+ * Production is always Neon, so only the Neon driver needs to be bundled. The
+ * other two are actively hostile to bundling:
+ *
+ *   - `@electric-sql/pglite` is a devDependency and ships WASM assets that do
+ *     not survive being bundled.
+ *   - `pg` depends on `pg-cloudflare`, which imports `cloudflare:sockets` — a
+ *     specifier that does not exist off Cloudflare and that no Node bundler can
+ *     resolve. Bundling `pg` therefore breaks the function at module load.
+ *
+ * Keep every specifier below non-literal. A literal import here takes down both
+ * serverless functions, because they both reach this module.
  */
 export const PGLITE_MODULE = ["@electric-sql", "pglite"].join("/");
 export const PGLITE_DRIVER_MODULE = ["drizzle-orm", "pglite"].join("/");
 export const PGLITE_MIGRATOR_MODULE = ["drizzle-orm", "pglite", "migrator"].join("/");
+export const PG_MODULE = ["p", "g"].join("");
+export const PG_DRIVER_MODULE = ["drizzle-orm", "node-postgres"].join("/");
+export const PG_MIGRATOR_MODULE = ["drizzle-orm", "node-postgres", "migrator"].join("/");
 
 export interface DbHandle {
   db: Db;
@@ -111,8 +125,9 @@ async function createHandle(url: string): Promise<DbHandle> {
     return { db, driver, url, close: () => pool.end() };
   }
 
-  const pg = await import("pg");
-  const { drizzle } = await import("drizzle-orm/node-postgres");
+  // Non-literal specifiers: see the note above. `pg` must never be bundled.
+  const pg = (await import(PG_MODULE)) as typeof import("pg");
+  const { drizzle } = (await import(PG_DRIVER_MODULE)) as typeof import("drizzle-orm/node-postgres");
   const pool = new pg.default.Pool({
     connectionString: url,
     ssl: /sslmode=require/.test(url) ? { rejectUnauthorized: false } : undefined,
