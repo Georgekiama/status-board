@@ -2,7 +2,7 @@
   "name": "statusboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Lit & More status board \u2014 persistence API, version history, and MCP server",
+  "description": "Lit & More status board — persistence API, version history, and MCP server",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -33,12 +33,14 @@
     "@neondatabase/serverless": "^1.0.0",
     "drizzle-orm": "^0.44.2",
     "pg": "^8.16.0",
+    "ws": "^8.21.3",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.2",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.15.0",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.1",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"

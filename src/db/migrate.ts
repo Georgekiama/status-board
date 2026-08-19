@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { getDbHandle, type Db, type DriverKind } from "./client.ts";
+import { getDbHandle, PGLITE_MIGRATOR_MODULE, type Db, type DriverKind } from "./client.ts";
 
 export const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
@@ -12,7 +12,8 @@ export async function applyMigrations(db: Db, driver: DriverKind): Promise<void>
 
   switch (driver) {
     case "pglite": {
-      const { migrate } = await import("drizzle-orm/pglite/migrator");
+      // Non-literal specifier: keeps PGlite out of the production bundle.
+      const { migrate } = (await import(PGLITE_MIGRATOR_MODULE)) as typeof import("drizzle-orm/pglite/migrator");
       await migrate(db as never, config);
       return;
     }

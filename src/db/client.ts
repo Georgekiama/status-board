@@ -10,6 +10,15 @@ export type Db = NodePgDatabase<typeof schema>;
 
 export type DriverKind = "neon" | "postgres" | "pglite";
 
+/**
+ * Development-only module specifiers, built at runtime so that bundlers cannot
+ * follow them into the production serverless bundle. See the comment at the
+ * pglite branch of createHandle().
+ */
+export const PGLITE_MODULE = ["@electric-sql", "pglite"].join("/");
+export const PGLITE_DRIVER_MODULE = ["drizzle-orm", "pglite"].join("/");
+export const PGLITE_MIGRATOR_MODULE = ["drizzle-orm", "pglite", "migrator"].join("/");
+
 export interface DbHandle {
   db: Db;
   driver: DriverKind;
@@ -60,8 +69,13 @@ async function createHandle(url: string): Promise<DbHandle> {
   const driver = detectDriver(url);
 
   if (driver === "pglite") {
-    const { PGlite } = await import("@electric-sql/pglite");
-    const { drizzle } = await import("drizzle-orm/pglite");
+    // These specifiers are assembled at runtime on purpose, so no bundler can
+    // resolve them statically. PGlite is a devDependency used for local dev and
+    // the test suite; it ships WASM assets that do not survive serverless
+    // bundling, and a literal import here gets pulled into the Vercel function
+    // and crashes it at module load. Keep these non-literal.
+    const { PGlite } = (await import(PGLITE_MODULE)) as typeof import("@electric-sql/pglite");
+    const { drizzle } = (await import(PGLITE_DRIVER_MODULE)) as typeof import("drizzle-orm/pglite");
     const target = pgliteTarget(url);
     if (target !== "memory://") {
       // PGlite will not create intermediate directories itself.
@@ -76,11 +90,22 @@ async function createHandle(url: string): Promise<DbHandle> {
   if (driver === "neon") {
     const neonPkg = await import("@neondatabase/serverless");
     const { drizzle } = await import("drizzle-orm/neon-serverless");
-    // Node 18+ ships a global WebSocket; the driver needs it for pooled
-    // connections (and therefore for transactions).
-    if (!neonPkg.neonConfig.webSocketConstructor && typeof globalThis.WebSocket !== "undefined") {
-      neonPkg.neonConfig.webSocketConstructor = globalThis.WebSocket as never;
+
+    // The pooled Neon driver talks WebSocket, which is what gives us real
+    // transactions. Prefer the `ws` package: Node's own global WebSocket is not
+    // reliably compatible across runtimes, and a mismatch only shows up as a
+    // failed connection at query time.
+    if (!neonPkg.neonConfig.webSocketConstructor) {
+      try {
+        const wsModule = await import("ws");
+        neonPkg.neonConfig.webSocketConstructor = (wsModule.default ?? wsModule) as never;
+      } catch {
+        if (typeof globalThis.WebSocket !== "undefined") {
+          neonPkg.neonConfig.webSocketConstructor = globalThis.WebSocket as never;
+        }
+      }
     }
+
     const pool = new neonPkg.Pool({ connectionString: url });
     const db = drizzle(pool, { schema }) as unknown as Db;
     return { db, driver, url, close: () => pool.end() };
