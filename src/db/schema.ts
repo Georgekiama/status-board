@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
-import type { Board, WriteSource } from "../board/types.ts";
+import type { Board, WriteSource } from "../board/types";
 
 /**
  * The board is a single shared document (plan.md section 2), so `board` holds

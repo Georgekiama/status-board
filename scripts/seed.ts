@@ -9,10 +9,10 @@
  * to board_history like any other write.
  */
 import { readFile } from "node:fs/promises";
-import { closeDb } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
-import { boardService } from "../src/board/service.ts";
-import type { Board } from "../src/board/types.ts";
+import { closeDb } from "../src/db/client";
+import { runMigrations } from "../src/db/migrate";
+import { boardService } from "../src/board/service";
+import type { Board } from "../src/board/types";
 
 const STARTER_BOARD: Board = {
   areas: [

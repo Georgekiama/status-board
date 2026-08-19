@@ -9,7 +9,7 @@
  * with it and a stray value blanks the whole board.
  */
 
-import type { KnownStatus } from "./validate.ts";
+import type { KnownStatus } from "./validate";
 
 export interface Project {
   /** Stable identifier the frontend uses as a key. Required. */

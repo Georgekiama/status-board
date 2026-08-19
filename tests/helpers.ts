@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { detectDriver, type Db } from "../src/db/client.ts";
-import type { ApiRequest } from "../src/http/handlers.ts";
-import { applyMigrations } from "../src/db/migrate.ts";
-import * as schema from "../src/db/schema.ts";
-import { boardHistory, board } from "../src/db/schema.ts";
-import type { Board } from "../src/board/types.ts";
+import { detectDriver, type Db } from "../src/db/client";
+import type { ApiRequest } from "../src/http/handlers";
+import { applyMigrations } from "../src/db/migrate";
+import * as schema from "../src/db/schema";
+import { boardHistory, board } from "../src/db/schema";
+import type { Board } from "../src/board/types";
 
 /**
  * Where the test suite runs.

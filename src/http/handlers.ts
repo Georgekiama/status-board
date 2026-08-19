@@ -1,8 +1,8 @@
-import type { Db } from "../db/client.ts";
-import { BoardError, BoardValidationError } from "../board/errors.ts";
-import { boardService } from "../board/service.ts";
-import type { BoardRecord, WriteSource } from "../board/types.ts";
-import { corsHeaders } from "./cors.ts";
+import type { Db } from "../db/client";
+import { BoardError, BoardValidationError } from "../board/errors";
+import { boardService } from "../board/service";
+import type { BoardRecord, WriteSource } from "../board/types";
+import { corsHeaders } from "./cors";
 
 /** Reject bodies before parsing them. Generous next to MAX_BOARD_BYTES. */
 export const MAX_REQUEST_BYTES = 2_000_000;

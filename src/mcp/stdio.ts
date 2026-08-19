@@ -6,8 +6,8 @@
  * traffic; logs go to stderr.
  */
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { runMigrations } from "../db/migrate.ts";
-import { createMcpServer } from "./server.ts";
+import { runMigrations } from "../db/migrate";
+import { createMcpServer } from "./server";
 
 async function main(): Promise<void> {
   if (process.env.SKIP_MIGRATIONS !== "1") {

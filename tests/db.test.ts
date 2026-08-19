@@ -8,9 +8,9 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { desc, eq } from "drizzle-orm";
-import { board, boardHistory, SINGLETON_BOARD_ID } from "../src/db/schema.ts";
-import { detectDriver } from "../src/db/client.ts";
-import type { Board } from "../src/board/types.ts";
+import { board, boardHistory, SINGLETON_BOARD_ID } from "../src/db/schema";
+import { detectDriver } from "../src/db/client";
+import type { Board } from "../src/board/types";
 import {
   assertDbRejects,
   createTestDb,
@@ -18,7 +18,7 @@ import {
   sampleBoard,
   TEST_DATABASE_URL,
   type TestDb,
-} from "./helpers.ts";
+} from "./helpers";
 
 let ctx: TestDb;
 
@@ -60,7 +60,7 @@ describe("connection and migration", () => {
   });
 
   it("is idempotent — re-running migrations is a no-op", async () => {
-    const { applyMigrations } = await import("../src/db/migrate.ts");
+    const { applyMigrations } = await import("../src/db/migrate");
     await applyMigrations(ctx.db, detectDriver(TEST_DATABASE_URL));
     const rows = await ctx.db.select().from(board);
     assert.equal(rows.length, 0);

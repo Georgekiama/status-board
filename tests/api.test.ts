@@ -7,10 +7,10 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
-import { boardService } from "../src/board/service.ts";
-import { board, boardHistory, SINGLETON_BOARD_ID } from "../src/db/schema.ts";
-import { handleApi } from "../src/http/handlers.ts";
-import { startNodeServer, type RunningServer } from "../src/http/node-server.ts";
+import { boardService } from "../src/board/service";
+import { board, boardHistory, SINGLETON_BOARD_ID } from "../src/db/schema";
+import { handleApi } from "../src/http/handlers";
+import { startNodeServer, type RunningServer } from "../src/http/node-server";
 import {
   apiRequest,
   asRecord,
@@ -18,7 +18,7 @@ import {
   labelledBoard,
   sampleBoard,
   type TestDb,
-} from "./helpers.ts";
+} from "./helpers";
 
 let ctx: TestDb;
 let server: RunningServer;

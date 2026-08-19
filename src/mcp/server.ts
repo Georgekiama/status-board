@@ -1,9 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { BoardError, BoardValidationError } from "../board/errors.ts";
-import { boardService } from "../board/service.ts";
-import type { Board, BoardRecord } from "../board/types.ts";
-import type { Db } from "../db/client.ts";
+import { BoardError, BoardValidationError } from "../board/errors";
+import { boardService } from "../board/service";
+import type { Board, BoardRecord } from "../board/types";
+import type { Db } from "../db/client";
 
 export const MCP_SERVER_NAME = "litnmore-status-board";
 export const MCP_SERVER_VERSION = "1.0.0";

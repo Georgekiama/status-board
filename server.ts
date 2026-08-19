@@ -5,10 +5,10 @@
  * origin, which is exactly how the Vercel deployment behaves. Run it with
  * `npm run dev`.
  */
-import { closeDb, getDbHandle } from "./src/db/client.ts";
-import { runMigrations } from "./src/db/migrate.ts";
-import { allowedOrigins } from "./src/http/cors.ts";
-import { startNodeServer } from "./src/http/node-server.ts";
+import { closeDb, getDbHandle } from "./src/db/client";
+import { runMigrations } from "./src/db/migrate";
+import { allowedOrigins } from "./src/http/cors";
+import { startNodeServer } from "./src/http/node-server";
 
 const port = Number(process.env.PORT ?? 3000);
 

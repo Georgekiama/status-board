@@ -3,9 +3,9 @@
  *
  *   npm run db:migrate
  */
-import { closeDb } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
-import { boardService } from "../src/board/service.ts";
+import { closeDb } from "../src/db/client";
+import { runMigrations } from "../src/db/migrate";
+import { boardService } from "../src/board/service";
 
 async function main(): Promise<void> {
   const { driver, url } = await runMigrations();

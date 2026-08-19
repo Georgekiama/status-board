@@ -13,11 +13,11 @@ import { asc } from "drizzle-orm";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { boardHistory } from "../src/db/schema.ts";
-import { handleApi } from "../src/http/handlers.ts";
-import { startNodeServer, type RunningServer } from "../src/http/node-server.ts";
-import { createMcpServer } from "../src/mcp/server.ts";
-import { apiRequest, asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers.ts";
+import { boardHistory } from "../src/db/schema";
+import { handleApi } from "../src/http/handlers";
+import { startNodeServer, type RunningServer } from "../src/http/node-server";
+import { createMcpServer } from "../src/mcp/server";
+import { apiRequest, asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers";
 
 let ctx: TestDb;
 let client: Client;

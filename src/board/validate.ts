@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Board } from "./types.ts";
+import type { Board } from "./types";
 
 /** Refuse absurd payloads outright. The real board is a few KB. */
 export const MAX_BOARD_BYTES = 1_000_000;

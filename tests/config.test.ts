@@ -12,9 +12,9 @@ import { readFile } from "node:fs/promises";
 import { createContext, runInContext } from "node:vm";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { startNodeServer, type RunningServer } from "../src/http/node-server.ts";
-import { renderConfig } from "../scripts/write-config.ts";
-import { asRecord, createTestDb, labelledBoard, type TestDb } from "./helpers.ts";
+import { startNodeServer, type RunningServer } from "../src/http/node-server";
+import { renderConfig } from "../scripts/write-config";
+import { asRecord, createTestDb, labelledBoard, type TestDb } from "./helpers";
 
 const SCRIPT_PATH = fileURLToPath(new URL("../public/board-api.js", import.meta.url));
 const TOKEN = "test-token-abc123";

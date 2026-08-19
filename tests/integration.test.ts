@@ -7,11 +7,11 @@
  */
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
-import { boardService } from "../src/board/service.ts";
-import type { Db } from "../src/db/client.ts";
-import { boardHistory } from "../src/db/schema.ts";
-import { startNodeServer, type RunningServer } from "../src/http/node-server.ts";
-import { asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers.ts";
+import { boardService } from "../src/board/service";
+import type { Db } from "../src/db/client";
+import { boardHistory } from "../src/db/schema";
+import { startNodeServer, type RunningServer } from "../src/http/node-server";
+import { asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers";
 
 let ctx: TestDb;
 let server: RunningServer;

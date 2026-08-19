@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createMcpServer, type McpContext } from "./server.ts";
+import { createMcpServer, type McpContext } from "./server";
 
 export interface McpHttpOptions {
   ctx?: McpContext;

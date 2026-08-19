@@ -9,8 +9,8 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { KNOWN_STATUSES, MAX_BOARD_BYTES, validateBoard } from "../src/board/validate.ts";
-import { sampleBoard } from "./helpers.ts";
+import { KNOWN_STATUSES, MAX_BOARD_BYTES, validateBoard } from "../src/board/validate";
+import { sampleBoard } from "./helpers";
 
 function expectValid(input: unknown) {
   const result = validateBoard(input);

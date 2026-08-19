@@ -3,9 +3,9 @@ import { stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderConfig } from "../../scripts/write-config.ts";
-import { handleMcpRequest } from "../mcp/http.ts";
-import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest } from "./handlers.ts";
+import { renderConfig } from "../../scripts/write-config";
+import { handleMcpRequest } from "../mcp/http";
+import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest } from "./handlers";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public", import.meta.url));
 

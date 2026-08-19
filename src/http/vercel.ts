@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest } from "./handlers.ts";
+import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest } from "./handlers";
 
 /**
  * Vercel's Node runtime hands us Node's own IncomingMessage/ServerResponse,

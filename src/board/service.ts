@@ -1,9 +1,9 @@
 import { desc, eq, sql } from "drizzle-orm";
-import { getDb, type Db } from "../db/client.ts";
-import { board, boardHistory, SINGLETON_BOARD_ID } from "../db/schema.ts";
-import { BoardValidationError, NotFoundError, VersionConflictError } from "./errors.ts";
-import type { Board, BoardRecord, HistoryEntry, HistorySummary, WriteSource } from "./types.ts";
-import { validateBoard } from "./validate.ts";
+import { getDb, type Db } from "../db/client";
+import { board, boardHistory, SINGLETON_BOARD_ID } from "../db/schema";
+import { BoardValidationError, NotFoundError, VersionConflictError } from "./errors";
+import type { Board, BoardRecord, HistoryEntry, HistorySummary, WriteSource } from "./types";
+import { validateBoard } from "./validate";
 
 /** What a brand new, never-written board looks like. */
 export const EMPTY_BOARD: Board = { areas: [] };

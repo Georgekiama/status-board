@@ -8,9 +8,9 @@
  * The board being rolled over is archived first, so a restore is itself
  * undoable. Deliberately CLI-only: there is no public rollback endpoint.
  */
-import { closeDb } from "../src/db/client.ts";
-import { boardService } from "../src/board/service.ts";
-import type { Board } from "../src/board/types.ts";
+import { closeDb } from "../src/db/client";
+import { boardService } from "../src/board/service";
+import type { Board } from "../src/board/types";
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf("--" + name);

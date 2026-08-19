@@ -11,8 +11,8 @@ import { readFile } from "node:fs/promises";
 import { createContext, runInContext } from "node:vm";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { startNodeServer, type RunningServer } from "../src/http/node-server.ts";
-import { asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers.ts";
+import { startNodeServer, type RunningServer } from "../src/http/node-server";
+import { asRecord, createTestDb, labelledBoard, sampleBoard, type TestDb } from "./helpers";
 
 const SCRIPT_PATH = fileURLToPath(new URL("../public/board-api.js", import.meta.url));
 

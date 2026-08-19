@@ -5,7 +5,7 @@
  * so /api/board, /api/board/history and /api/health all land in this one place
  * and are dispatched by the shared handler.
  */
-import { serveApi, type VercelLikeRequest, type VercelLikeResponse } from "../src/http/vercel.ts";
+import { serveApi, type VercelLikeRequest, type VercelLikeResponse } from "../src/http/vercel";
 
 export default async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise<void> {
   await serveApi(req, res, { source: "rest" });

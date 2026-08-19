@@ -1,4 +1,4 @@
-import type { ValidationIssue } from "./validate.ts";
+import type { ValidationIssue } from "./validate";
 
 /** Base for errors the HTTP and MCP layers know how to translate. */
 export class BoardError extends Error {

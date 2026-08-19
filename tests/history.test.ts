@@ -9,11 +9,11 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { asc } from "drizzle-orm";
-import { boardService } from "../src/board/service.ts";
-import { NotFoundError } from "../src/board/errors.ts";
-import { boardHistory } from "../src/db/schema.ts";
-import { handleApi } from "../src/http/handlers.ts";
-import { apiRequest, asRecord, createTestDb, labelledBoard, type TestDb } from "./helpers.ts";
+import { boardService } from "../src/board/service";
+import { NotFoundError } from "../src/board/errors";
+import { boardHistory } from "../src/db/schema";
+import { handleApi } from "../src/http/handlers";
+import { apiRequest, asRecord, createTestDb, labelledBoard, type TestDb } from "./helpers";
 
 let ctx: TestDb;
 

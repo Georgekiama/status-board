@@ -6,8 +6,8 @@
  *   npm run db:history -- --id 12 --out backup.json
  */
 import { writeFile } from "node:fs/promises";
-import { closeDb } from "../src/db/client.ts";
-import { boardService } from "../src/board/service.ts";
+import { closeDb } from "../src/db/client";
+import { boardService } from "../src/board/service";
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf("--" + name);

@@ -1,5 +1,5 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import * as schema from "./schema.ts";
+import * as schema from "./schema";
 
 /**
  * All three supported drivers (node-postgres, Neon serverless, PGlite) expose

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { getDbHandle, PGLITE_MIGRATOR_MODULE, type Db, type DriverKind } from "./client.ts";
+import { getDbHandle, PGLITE_MIGRATOR_MODULE, type Db, type DriverKind } from "./client";
 
 export const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
