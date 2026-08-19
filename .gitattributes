@@ -1,0 +1,9 @@
+# Normalise to LF in the repository. The Vercel build runs on Linux; without this
+# a Windows checkout would commit CRLF and churn every file.
+* text=auto eol=lf
+
+# Never touch these.
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary

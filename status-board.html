@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lit &amp; More — Status Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2A2A22;
+    --ink-soft:#5B5A4E;
+    --cream:#F1ECDD;
+    --card:#FAF7EE;
+    --olive:#5B6144;
+    --olive-dark:#3F4330;
+    --rust:#B14926;
+    --rust-deep:#7A3016;
+    --gold:#B4862A;
+    --line:#DFD8C2;
+    --green-fill:#E4EEDD; --green-text:#3B5C2E; --green-border:#9BB884;
+    --amber-fill:#F7EACB; --amber-text:#7A5A12; --amber-border:#D9B85C;
+    --red-fill:#F3DCD2; --red-text:#8A3418; --red-border:#D69377;
+    --gray-fill:#E9E5D6; --gray-text:#6B6858; --gray-border:#C4BFA9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Inter',sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 64px;}
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+  .masthead h1{font-family:'Fraunces',serif;font-weight:600;font-size:30px;margin:0;letter-spacing:-0.01em;}
+  .masthead .sub{font-size:13px;color:var(--ink-soft);margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+  .today{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft);text-align:right;}
+  .brief-panel{background:var(--olive-dark);color:var(--cream);border-radius:6px;padding:20px 22px;margin-bottom:28px;}
+  .brief-panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:16px;margin:0 0 4px;color:#fff;}
+  .brief-panel .hint{font-size:12.5px;color:#D8D3BE;margin-bottom:14px;}
+  #briefOut{font-size:13.5px;line-height:1.7;white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;background:rgba(255,255,255,0.06);border-radius:4px;padding:12px 14px;min-height:20px;}
+  .brief-actions{margin-top:12px;display:flex;gap:10px;}
+  .brief-actions button{background:var(--rust);color:#fff;border:none;border-radius:4px;padding:8px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+  .brief-actions button.secondary{background:transparent;border:1px solid #7C7862;color:var(--cream);}
+  .brief-actions button:hover{opacity:0.9;}
+  .filters{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .filters button{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:12.5px;font-family:'Inter',sans-serif;color:var(--ink-soft);cursor:pointer;}
+  .filters button.active{background:var(--ink);color:var(--cream);border-color:var(--ink);}
+  .area{margin-bottom:26px;}
+  .area h3{font-family:'Fraunces',serif;font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.06em;color:var(--olive-dark);border-bottom:1px solid var(--line);padding-bottom:6px;margin:0 0 10px;}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:8px;}
+  .row-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .row-name{font-weight:600;font-size:14.5px;}
+  .row-owner{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .row-right{display:flex;align-items:center;gap:8px;}
+  select.status{font-family:'Inter',sans-serif;font-size:12px;font-weight:500;border-radius:14px;padding:4px 10px;border:1px solid;cursor:pointer;}
+  select.status.green{background:var(--green-fill);color:var(--green-text);border-color:var(--green-border);}
+  select.status.amber{background:var(--amber-fill);color:var(--amber-text);border-color:var(--amber-border);}
+  select.status.red{background:var(--red-fill);color:var(--red-text);border-color:var(--red-border);}
+  select.status.gray{background:var(--gray-fill);color:var(--gray-text);border-color:var(--gray-border);}
+  .flag-label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--rust-deep);font-weight:500;}
+  .del-btn{background:transparent;border:1px solid var(--line);border-radius:50%;width:24px;height:24px;line-height:1;color:var(--ink-soft);cursor:pointer;font-size:15px;}
+  .del-btn:hover{background:var(--red-fill);color:var(--red-text);border-color:var(--red-border);}
+  .row-note{width:100%;margin-top:8px;font-size:13px;font-family:'Inter',sans-serif;color:var(--ink);background:transparent;border:none;border-top:1px dashed var(--line);padding-top:8px;resize:vertical;min-height:36px;}
+  .row-note:focus{outline:none;background:#fff;}
+  .row-meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-soft);margin-top:6px;}
+  .add-row{background:transparent;border:1px dashed var(--line);border-radius:6px;padding:9px;width:100%;font-size:13px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .add-row:hover{border-color:var(--olive);color:var(--olive);}
+  .save-note{font-size:11px;color:var(--ink-soft);text-align:right;margin-top:20px;font-family:'IBM Plex Mono',monospace;}
+  .newarea{margin-top:10px;display:flex;gap:8px;}
+  .newarea input{flex:1;font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);}
+  .newarea button{background:var(--olive);color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:13px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <h1>Lit &amp; More — Status Board</h1>
+      <div class="sub">Fed by morning call transcripts + team updates &middot; shared with the team</div>
+    </div>
+    <div class="today" id="todayDate"></div>
+  </div>
+
+  <div class="brief-panel">
+    <h2>Morning brief for Kris</h2>
+    <div class="hint">Pulls every flagged, watch, and blocked item into one script for the 7AM call.</div>
+    <div id="briefOut">Loading…</div>
+    <div class="brief-actions">
+      <button id="copyBrief">Copy for the call</button>
+      <button class="secondary" id="refreshBrief">Refresh</button>
+      <button class="secondary" id="resetData">Reload latest data</button>
+    </div>
+  </div>
+
+  <div class="filters" id="filters">
+    <button data-f="all" class="active">All projects</button>
+    <button data-f="flag">Flagged for Kris</button>
+    <button data-f="red">Blocked</button>
+    <button data-f="amber">Watch</button>
+    <button data-f="green">Moving</button>
+    <button data-f="gray">Needs update</button>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="newarea">
+    <input id="newAreaName" placeholder="Add a new area (e.g. Product Dev)" />
+    <button id="addArea">Add area</button>
+  </div>
+
+  <div class="save-note" id="saveNote">&nbsp;</div>
+</div>
+
+<script>
+const STATUS = {
+  green: {label:'Moving', cls:'green'},
+  amber: {label:'Watch', cls:'amber'},
+  red: {label:'Blocked', cls:'red'},
+  gray: {label:'Needs update', cls:'gray'}
+};
+
+const seedData = {
+  areas: [
+    {
+      name: "Legal ops / trial support",
+      projects: [
+        { id:"disc-team", name:"Discovery / Trial Support team", owner:"Duncan Ngándá", status:"green", note:"3 redaction jobs, 2 email collections, page-labeling all closed out this week. Department running hot. Source: Aug 13 team call.", updated:"2026-08-13", flag:false },
+        { id:"fl-sweep", name:"Florida Trial Sweep", owner:"Barbrah Shiundu, Lincoln (dashboard)", status:"amber", note:"4,639 cases loaded. Dashboard now live with real data (executive overview, active trials, attorney/firm network, revenue forecast, courthouse intelligence). Known bugs: 2028 trial-date issue (Jun 18) and a broken attorney-firm network logic (Jul 7), both being worked. Kris assigned a new panel: \"Large Matter Tracking\" — a rolling 90-day view of trials the team is tracking. Kris also assigned Lincon and Barbrah to run focused 30-min working sessions with Mike Sooley and Melissa Shugars: find data that doesn't make sense, and have Sooley/Melissa ask real business questions to pressure-test the system. July 8 presentation deadline. Sources: Jun 18 and Jul 7 calls.", updated:"2026-07-07", flag:true },
+        { id:"aw-corpus", name:"AW Digital Corpus", owner:"Michael, Bravin Angulu", status:"amber", note:"Kris personally downloaded and organized 981 files into 8 categories / 25 sets, then handed it off. Task: write a plain-language explainer of what's in there (not a detailed index) and get it uploaded somewhere the team can use it. Source: Jun 30 call.", updated:"2026-06-30", flag:false },
+        { id:"rent-njenga", name:"Rent Njenga Phase 2", owner:"Michael, Bravin Angulu", status:"green", note:"Expanded the original Njenga fund to cover relocation costs specifically — deposits, first month's rent, moving costs. Team-run, self-sustaining via a small loan surcharge. Kris gave positive feedback on how it's landing. Source: Aug 6 call (concept discussed Jun 30).", updated:"2026-08-06", flag:false },
+        { id:"hubspot-onboarding", name:"HubSpot 60-day onboarding program", owner:"Matthew Muriuki (monitor)", status:"amber", note:"Kris assigned two new hires (Van Rose, Deborah) to a self-directed, roughly 60-day HubSpot mastery program. Matthew is the high-level monitor but the program is meant to run itself. Framed as a pilot for a similar self-directed \"Anthropic\" skills program Clement and Preston are building. Source: Jul 22 call.", updated:"2026-07-22", flag:false }
+      ]
+    },
+    {
+      name: "Marketing & growth",
+      projects: [
+        { id:"flp-pivot", name:"File Label Pro — marketing pivot", owner:"Rose Njenga", status:"green", note:"95% of marketing effort now goes to File Label Pro as the entry product. Exhibit Pro still advertised, same messaging, lower priority. Source: Aug 3 call.", updated:"2026-08-03", flag:false },
+        { id:"hubspot", name:"HubSpot outreach / email deliverability", owner:"Matthew Muriuki", status:"amber", note:"Cold-email domains got blacklisted twice. Moving to warm-leads-only and protecting seasoned domains for retargeting. Source: Aug 3 call.", updated:"2026-08-03", flag:true },
+        { id:"tiktok-meta", name:"TikTok / Meta ad creative", owner:"Anthony Kavita, Gideon Mogwambo", status:"amber", note:"Several rounds of feedback on messaging clarity. Instant Form ads paused, traffic redirected to landing page. Source: Aug 3 call.", updated:"2026-08-03", flag:false },
+        { id:"copier-tabs-lp", name:"Copier tabs landing page", owner:"Collins Ngeno", status:"amber", note:"Design finished, waiting on dev handoff before pixel tracking can be installed. Source: Aug 3 call.", updated:"2026-08-03", flag:false },
+        { id:"exhibitpro-help", name:"ExhibitPro help center docs", owner:"Kris, Bravin Angulu", status:"green", note:"14 help-center articles across 5 categories completed (plans, upgrades, label support, etc). Ready for Maureen/Christabel review. Source: Jun 30 call.", updated:"2026-06-30", flag:false }
+      ]
+    },
+    {
+      name: "Facilities / logistics",
+      projects: [
+        { id:"office-moves", name:"Office relocations — Sarasota to Tampa, then Fort Lauderdale", owner:"Mike Sooley", status:"green", note:"Sarasota office closed, equipment moved into new Tampa facility same day. Fort Lauderdale move scheduled next. Source: Aug 13 call.", updated:"2026-08-13", flag:false }
+      ]
+    },
+    {
+      name: "Product / IP",
+      projects: [
+        { id:"cce", name:"CCE (Color Conversion Engine)", owner:"Maureen Wachira", status:"amber", note:"Provisional patent descriptions still being drafted, written broad on purpose. Maureen has finished education and insurance domains, now on accounting (stage 3-4), health next. Aug 15 is the target for all domains to be research-complete so non-provisional patents can be filed. Source: Jun 17 call with Jesse Kimani, Maureen, Christabel.", updated:"2026-06-17", flag:true },
+        { id:"tab-magic", name:"Tab Magic — provisional patent (tabs)", owner:"Jesse Kimani", status:"green", note:"Provisional patent covering tabs already drafted, reusing the same architecture as ExhibitPro's tab structure. Go-to-market name is Copier Tabs Pro. Source: Jun 17 call.", updated:"2026-06-17", flag:false },
+        { id:"file-label-patent", name:"File Label Pro — patent", owner:"Jesse Kimani", status:"red", note:"Not started. Needs its own IDD (invention disclosure) written before Jesse can file anything. Source: Jun 17 call.", updated:"2026-06-17", flag:true },
+        { id:"copier-tabs-prod", name:"Copier tabs — in-house printing", owner:"Mike Sooley, Mswider", status:"green", note:"Team discovered they can print custom tabs in-house instead of using pre-printed stock — cuts roughly 100 hours of collating per large job. Kris called it a marquee win. Next: adding cover, spine, and index generation to the approval screen. Source: Aug 6 call.", updated:"2026-08-06", flag:false },
+        { id:"lgw", name:"LGW pipeline automation (\"the Traveler\")", owner:"IRL team", status:"green", note:"Dashboard adoption is up across the IRL team, auto-invoicing now flows straight from production. Remaining gap: some fields (e.g. sales tax) still need manual entry on invoices. Source: Aug 6 call.", updated:"2026-08-06", flag:false },
+        { id:"entra-intune", name:"Entra ID / Intune rollout", owner:"", status:"gray", note:"Not located in the transcripts reviewed so far (searched specifically, no matches). Needs a direct check-in rather than a guess.", updated:"", flag:false },
+        { id:"keeper", name:"Keeper Security rollout", owner:"", status:"gray", note:"Not located in the transcripts reviewed so far (searched specifically, no matches). Needs a direct check-in rather than a guess.", updated:"", flag:false }
+      ]
+    }
+  ]
+};
+
+let data = null;
+let currentFilter = 'all';
+
+async function loadData(){
+  try{
+    const res = await window.storage.get('board-data', true);
+    data = JSON.parse(res.value);
+  }catch(e){
+    data = seedData;
+    await saveData();
+  }
+  render();
+}
+
+async function saveData(){
+  try{
+    await window.storage.set('board-data', JSON.stringify(data), true);
+    document.getElementById('saveNote').textContent = 'Saved just now · visible to everyone with this board';
+  }catch(e){
+    document.getElementById('saveNote').textContent = 'Save failed — changes are local to this session only';
+  }
+}
+
+function fmtDate(d){
+  const t = new Date();
+  return t.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', year:'numeric'});
+}
+
+function render(){
+  document.getElementById('todayDate').textContent = fmtDate();
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  data.areas.forEach((area, aIdx) => {
+    const visible = area.projects.filter(p => matchesFilter(p));
+    if (visible.length === 0 && currentFilter !== 'all') return;
+    const areaEl = document.createElement('div');
+    areaEl.className = 'area';
+    const h3 = document.createElement('h3');
+    h3.textContent = area.name;
+    areaEl.appendChild(h3);
+    const list = currentFilter === 'all' ? area.projects : visible;
+    list.forEach(p => areaEl.appendChild(renderRow(p, aIdx)));
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-row';
+    addBtn.textContent = '+ Add project to ' + area.name;
+    addBtn.onclick = () => addProject(aIdx);
+    if (currentFilter === 'all') areaEl.appendChild(addBtn);
+    board.appendChild(areaEl);
+  });
+  renderBrief();
+}
+
+function matchesFilter(p){
+  if (currentFilter === 'all') return true;
+  if (currentFilter === 'flag') return p.flag;
+  return p.status === currentFilter;
+}
+
+function renderRow(p, aIdx){
+  const row = document.createElement('div');
+  row.className = 'row';
+  const top = document.createElement('div');
+  top.className = 'row-top';
+
+  const left = document.createElement('div');
+  const nameEl = document.createElement('div');
+  nameEl.className = 'row-name';
+  nameEl.contentEditable = true;
+  nameEl.textContent = p.name;
+  nameEl.onblur = () => { p.name = nameEl.textContent.trim(); saveData(); };
+  left.appendChild(nameEl);
+  const ownerEl = document.createElement('div');
+  ownerEl.className = 'row-owner';
+  ownerEl.contentEditable = true;
+  ownerEl.textContent = p.owner ? 'Owner: ' + p.owner : 'Owner: (unassigned)';
+  ownerEl.onblur = () => {
+    const t = ownerEl.textContent.replace(/^Owner:\s*/,'').trim();
+    p.owner = t === '(unassigned)' ? '' : t;
+    saveData();
+  };
+  left.appendChild(ownerEl);
+  top.appendChild(left);
+
+  const right = document.createElement('div');
+  right.className = 'row-right';
+
+  const flagLabel = document.createElement('label');
+  flagLabel.className = 'flag-label';
+  const flagCb = document.createElement('input');
+  flagCb.type = 'checkbox';
+  flagCb.checked = p.flag;
+  flagCb.onchange = () => { p.flag = flagCb.checked; saveData(); renderBrief(); };
+  flagLabel.appendChild(flagCb);
+  flagLabel.appendChild(document.createTextNode('Flag for Kris'));
+  right.appendChild(flagLabel);
+
+  const sel = document.createElement('select');
+  sel.className = 'status ' + STATUS[p.status].cls;
+  Object.keys(STATUS).forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = STATUS[k].label;
+    if (k === p.status) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => {
+    p.status = sel.value;
+    p.updated = new Date().toISOString().slice(0,10);
+    sel.className = 'status ' + STATUS[p.status].cls;
+    saveData();
+    render();
+  };
+  right.appendChild(sel);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'del-btn';
+  delBtn.title = 'Remove this project from the board';
+  delBtn.innerHTML = '&times;';
+  delBtn.onclick = () => {
+    if (!confirm('Remove "' + p.name + '" from the board? This can\'t be undone.')) return;
+    const area = data.areas[aIdx];
+    area.projects = area.projects.filter(x => x.id !== p.id);
+    saveData();
+    render();
+  };
+  right.appendChild(delBtn);
+
+  top.appendChild(right);
+  row.appendChild(top);
+
+  const note = document.createElement('textarea');
+  note.className = 'row-note';
+  note.value = p.note || '';
+  note.placeholder = 'What moved, or what\'s blocked...';
+  note.onblur = () => { p.note = note.value; p.updated = new Date().toISOString().slice(0,10); saveData(); renderBrief(); };
+  row.appendChild(note);
+
+  const meta = document.createElement('div');
+  meta.className = 'row-meta';
+  meta.textContent = p.updated ? ('Last updated ' + p.updated) : 'No update logged yet';
+  row.appendChild(meta);
+
+  return row;
+}
+
+function addProject(aIdx){
+  const name = prompt('Project name?');
+  if (!name) return;
+  data.areas[aIdx].projects.push({
+    id: 'p-' + Date.now(),
+    name: name,
+    owner: '',
+    status: 'gray',
+    note: '',
+    updated: '',
+    flag: false
+  });
+  saveData();
+  render();
+}
+
+document.getElementById('addArea').onclick = () => {
+  const name = document.getElementById('newAreaName').value.trim();
+  if (!name) return;
+  data.areas.push({ name: name, projects: [] });
+  document.getElementById('newAreaName').value = '';
+  saveData();
+  render();
+};
+
+document.querySelectorAll('#filters button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.f;
+    render();
+  };
+});
+
+function renderBrief(){
+  const flagged = [];
+  const blocked = [];
+  const watch = [];
+  data.areas.forEach(area => {
+    area.projects.forEach(p => {
+      if (p.flag) flagged.push(p);
+      else if (p.status === 'red') blocked.push(p);
+      else if (p.status === 'amber') watch.push(p);
+    });
+  });
+  let lines = [];
+  if (flagged.length === 0 && blocked.length === 0 && watch.length === 0){
+    lines.push('Nothing flagged, blocked, or on watch right now — everything logged is status: moving.');
+  } else {
+    if (flagged.length){
+      lines.push('NEEDS KRIS:');
+      flagged.forEach(p => lines.push('  - ' + p.name + (p.note ? ': ' + p.note : '')));
+    }
+    if (blocked.length){
+      lines.push('BLOCKED:');
+      blocked.forEach(p => lines.push('  - ' + p.name + (p.note ? ': ' + p.note : '')));
+    }
+    if (watch.length){
+      lines.push('WATCHING:');
+      watch.forEach(p => lines.push('  - ' + p.name + (p.note ? ': ' + p.note : '')));
+    }
+  }
+  document.getElementById('briefOut').textContent = lines.join('\n');
+}
+
+document.getElementById('copyBrief').onclick = async () => {
+  const text = document.getElementById('briefOut').textContent;
+  try{
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('copyBrief');
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }catch(e){}
+};
+document.getElementById('refreshBrief').onclick = renderBrief;
+
+document.getElementById('resetData').onclick = async () => {
+  if (!confirm('This replaces any edits made in this board with the latest researched data. Continue?')) return;
+  data = JSON.parse(JSON.stringify(seedData));
+  await saveData();
+  render();
+};
+
+loadData();
+</script>
+</body>
+</html>

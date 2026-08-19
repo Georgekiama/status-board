@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+.env*.local
+.vercel/
+.pglite/
+dist/
+*.log
+.env.test
+public/config.js

@@ -1,0 +1,186 @@
+{
+  "areas": [
+    {
+      "name": "Legal ops / trial support",
+      "projects": [
+        {
+          "id": "disc-team",
+          "name": "Discovery / Trial Support team",
+          "owner": "Duncan Ngándá",
+          "status": "green",
+          "note": "3 redaction jobs, 2 email collections, page-labeling all closed out this week. Department running hot. Source: Aug 13 team call.",
+          "updated": "2026-08-13",
+          "flag": false
+        },
+        {
+          "id": "fl-sweep",
+          "name": "Florida Trial Sweep",
+          "owner": "Barbrah Shiundu, Lincoln (dashboard)",
+          "status": "amber",
+          "note": "4,639 cases loaded. Dashboard now live with real data (executive overview, active trials, attorney/firm network, revenue forecast, courthouse intelligence). Known bugs: 2028 trial-date issue (Jun 18) and a broken attorney-firm network logic (Jul 7), both being worked. Kris assigned a new panel: \"Large Matter Tracking\" — a rolling 90-day view of trials the team is tracking. Kris also assigned Lincon and Barbrah to run focused 30-min working sessions with Mike Sooley and Melissa Shugars: find data that doesn't make sense, and have Sooley/Melissa ask real business questions to pressure-test the system. July 8 presentation deadline. Sources: Jun 18 and Jul 7 calls.",
+          "updated": "2026-07-07",
+          "flag": true
+        },
+        {
+          "id": "aw-corpus",
+          "name": "AW Digital Corpus",
+          "owner": "Michael, Bravin Angulu",
+          "status": "amber",
+          "note": "Kris personally downloaded and organized 981 files into 8 categories / 25 sets, then handed it off. Task: write a plain-language explainer of what's in there (not a detailed index) and get it uploaded somewhere the team can use it. Source: Jun 30 call.",
+          "updated": "2026-06-30",
+          "flag": false
+        },
+        {
+          "id": "rent-njenga",
+          "name": "Rent Njenga Phase 2",
+          "owner": "Michael, Bravin Angulu",
+          "status": "green",
+          "note": "Expanded the original Njenga fund to cover relocation costs specifically — deposits, first month's rent, moving costs. Team-run, self-sustaining via a small loan surcharge. Kris gave positive feedback on how it's landing. Source: Aug 6 call (concept discussed Jun 30).",
+          "updated": "2026-08-06",
+          "flag": false
+        },
+        {
+          "id": "hubspot-onboarding",
+          "name": "HubSpot 60-day onboarding program",
+          "owner": "Matthew Muriuki (monitor)",
+          "status": "amber",
+          "note": "Kris assigned two new hires (Van Rose, Deborah) to a self-directed, roughly 60-day HubSpot mastery program. Matthew is the high-level monitor but the program is meant to run itself. Framed as a pilot for a similar self-directed \"Anthropic\" skills program Clement and Preston are building. Source: Jul 22 call.",
+          "updated": "2026-07-22",
+          "flag": false
+        }
+      ]
+    },
+    {
+      "name": "Marketing & growth",
+      "projects": [
+        {
+          "id": "flp-pivot",
+          "name": "File Label Pro — marketing pivot",
+          "owner": "Rose Njenga",
+          "status": "green",
+          "note": "95% of marketing effort now goes to File Label Pro as the entry product. Exhibit Pro still advertised, same messaging, lower priority. Source: Aug 3 call.",
+          "updated": "2026-08-03",
+          "flag": false
+        },
+        {
+          "id": "hubspot",
+          "name": "HubSpot outreach / email deliverability",
+          "owner": "Matthew Muriuki",
+          "status": "amber",
+          "note": "Cold-email domains got blacklisted twice. Moving to warm-leads-only and protecting seasoned domains for retargeting. Source: Aug 3 call.",
+          "updated": "2026-08-03",
+          "flag": true
+        },
+        {
+          "id": "tiktok-meta",
+          "name": "TikTok / Meta ad creative",
+          "owner": "Anthony Kavita, Gideon Mogwambo",
+          "status": "amber",
+          "note": "Several rounds of feedback on messaging clarity. Instant Form ads paused, traffic redirected to landing page. Source: Aug 3 call.",
+          "updated": "2026-08-03",
+          "flag": false
+        },
+        {
+          "id": "copier-tabs-lp",
+          "name": "Copier tabs landing page",
+          "owner": "Collins Ngeno",
+          "status": "amber",
+          "note": "Design finished, waiting on dev handoff before pixel tracking can be installed. Source: Aug 3 call.",
+          "updated": "2026-08-03",
+          "flag": false
+        },
+        {
+          "id": "exhibitpro-help",
+          "name": "ExhibitPro help center docs",
+          "owner": "Kris, Bravin Angulu",
+          "status": "green",
+          "note": "14 help-center articles across 5 categories completed (plans, upgrades, label support, etc). Ready for Maureen/Christabel review. Source: Jun 30 call.",
+          "updated": "2026-06-30",
+          "flag": false
+        }
+      ]
+    },
+    {
+      "name": "Facilities / logistics",
+      "projects": [
+        {
+          "id": "office-moves",
+          "name": "Office relocations — Sarasota to Tampa, then Fort Lauderdale",
+          "owner": "Mike Sooley",
+          "status": "green",
+          "note": "Sarasota office closed, equipment moved into new Tampa facility same day. Fort Lauderdale move scheduled next. Source: Aug 13 call.",
+          "updated": "2026-08-13",
+          "flag": false
+        }
+      ]
+    },
+    {
+      "name": "Product / IP",
+      "projects": [
+        {
+          "id": "cce",
+          "name": "CCE (Color Conversion Engine)",
+          "owner": "Maureen Wachira",
+          "status": "amber",
+          "note": "Provisional patent descriptions still being drafted, written broad on purpose. Maureen has finished education and insurance domains, now on accounting (stage 3-4), health next. Aug 15 is the target for all domains to be research-complete so non-provisional patents can be filed. Source: Jun 17 call with Jesse Kimani, Maureen, Christabel.",
+          "updated": "2026-06-17",
+          "flag": true
+        },
+        {
+          "id": "tab-magic",
+          "name": "Tab Magic — provisional patent (tabs)",
+          "owner": "Jesse Kimani",
+          "status": "green",
+          "note": "Provisional patent covering tabs already drafted, reusing the same architecture as ExhibitPro's tab structure. Go-to-market name is Copier Tabs Pro. Source: Jun 17 call.",
+          "updated": "2026-06-17",
+          "flag": false
+        },
+        {
+          "id": "file-label-patent",
+          "name": "File Label Pro — patent",
+          "owner": "Jesse Kimani",
+          "status": "red",
+          "note": "Not started. Needs its own IDD (invention disclosure) written before Jesse can file anything. Source: Jun 17 call.",
+          "updated": "2026-06-17",
+          "flag": true
+        },
+        {
+          "id": "copier-tabs-prod",
+          "name": "Copier tabs — in-house printing",
+          "owner": "Mike Sooley, Mswider",
+          "status": "green",
+          "note": "Team discovered they can print custom tabs in-house instead of using pre-printed stock — cuts roughly 100 hours of collating per large job. Kris called it a marquee win. Next: adding cover, spine, and index generation to the approval screen. Source: Aug 6 call.",
+          "updated": "2026-08-06",
+          "flag": false
+        },
+        {
+          "id": "lgw",
+          "name": "LGW pipeline automation (\"the Traveler\")",
+          "owner": "IRL team",
+          "status": "green",
+          "note": "Dashboard adoption is up across the IRL team, auto-invoicing now flows straight from production. Remaining gap: some fields (e.g. sales tax) still need manual entry on invoices. Source: Aug 6 call.",
+          "updated": "2026-08-06",
+          "flag": false
+        },
+        {
+          "id": "entra-intune",
+          "name": "Entra ID / Intune rollout",
+          "owner": "",
+          "status": "gray",
+          "note": "Not located in the transcripts reviewed so far (searched specifically, no matches). Needs a direct check-in rather than a guess.",
+          "updated": "",
+          "flag": false
+        },
+        {
+          "id": "keeper",
+          "name": "Keeper Security rollout",
+          "owner": "",
+          "status": "gray",
+          "note": "Not located in the transcripts reviewed so far (searched specifically, no matches). Needs a direct check-in rather than a guess.",
+          "updated": "",
+          "flag": false
+        }
+      ]
+    }
+  ]
+}

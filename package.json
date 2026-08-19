@@ -1,0 +1,46 @@
+{
+  "name": "statusboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lit & More status board \u2014 persistence API, version history, and MCP server",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --import tsx --watch server.ts",
+    "start": "node --env-file-if-exists=.env --import tsx server.ts",
+    "build": "tsc --noEmit && node --import tsx scripts/write-config.ts",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
+    "db:history": "node --env-file-if-exists=.env --import tsx scripts/history.ts",
+    "db:restore": "node --env-file-if-exists=.env --import tsx scripts/restore.ts",
+    "test": "node --env-file-if-exists=.env.test --import tsx --test tests/*.test.ts",
+    "test:db": "node --import tsx --test tests/db.test.ts",
+    "test:validate": "node --import tsx --test tests/validate.test.ts",
+    "test:api": "node --import tsx --test tests/api.test.ts",
+    "test:history": "node --import tsx --test tests/history.test.ts",
+    "test:mcp": "node --import tsx --test tests/mcp.test.ts",
+    "mcp:stdio": "node --env-file-if-exists=.env --import tsx src/mcp/stdio.ts",
+    "smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke.ts",
+    "mcp:check": "node --env-file-if-exists=.env --import tsx scripts/mcp-check.ts",
+    "config": "node --env-file-if-exists=.env --import tsx scripts/write-config.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@neondatabase/serverless": "^1.0.0",
+    "drizzle-orm": "^0.44.2",
+    "pg": "^8.16.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.2",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
