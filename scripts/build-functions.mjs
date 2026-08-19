@@ -47,6 +47,7 @@ async function main() {
   // Clear stale output so a renamed or deleted function cannot linger.
   await rm(OUT_DIR, { recursive: true, force: true });
 
+
   const result = await esbuild.build({
     entryPoints: ENTRY_POINTS,
     outdir: "api",
@@ -57,6 +58,11 @@ async function main() {
     format: "esm",
     sourcemap: false,
     minify: false,
+    // Everything in node_modules stays external and is resolved at runtime from
+    // /var/task/node_modules, which the module probe confirmed works. Only this
+    // project's own code is inlined -- that is the part Vercel does not ship.
+    // It also keeps the committed output small and reviewable.
+    packages: "external",
     external: EXTERNAL,
     // Some bundled dependencies are CommonJS and call require() at runtime.
     // In an ESM output that identifier does not exist, so provide it.
