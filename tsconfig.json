@@ -16,5 +16,5 @@
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "api/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "server.ts", "drizzle.config.ts"]
+  "include": ["src/**/*.ts", "functions/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "server.ts", "drizzle.config.ts"]
 }

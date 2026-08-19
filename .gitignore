@@ -8,3 +8,5 @@ dist/
 *.log
 .env.test
 public/config.js
+api/*.js
+api/*.js.map

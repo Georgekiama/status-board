@@ -2,7 +2,7 @@
   "name": "statusboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Lit & More status board — persistence API, version history, and MCP server",
+  "description": "Lit & More status board \u2014 persistence API, version history, and MCP server",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx --watch server.ts",
     "start": "node --env-file-if-exists=.env --import tsx server.ts",
-    "build": "tsc --noEmit && node --import tsx scripts/write-config.ts",
+    "build": "tsc --noEmit && node --import tsx scripts/write-config.ts && node scripts/build-functions.mjs",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
@@ -26,7 +26,8 @@
     "mcp:stdio": "node --env-file-if-exists=.env --import tsx src/mcp/stdio.ts",
     "smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke.ts",
     "mcp:check": "node --env-file-if-exists=.env --import tsx scripts/mcp-check.ts",
-    "config": "node --env-file-if-exists=.env --import tsx scripts/write-config.ts"
+    "config": "node --env-file-if-exists=.env --import tsx scripts/write-config.ts",
+    "build:functions": "node scripts/build-functions.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -42,6 +43,7 @@
     "@types/pg": "^8.15.0",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
   }
