@@ -15,6 +15,24 @@ There is exactly one implementation of board logic ([src/board/service.ts](src/b
 REST and MCP are thin transports over it, so the browser and the automation
 cannot behave differently.
 
+## Live
+
+| | |
+| --- | --- |
+| **Board** | https://status-board-eight.vercel.app/ |
+| **API** | `GET`/`PUT` https://status-board-eight.vercel.app/api/board |
+| **MCP** | `POST` https://status-board-eight.vercel.app/api/mcp |
+| **Health** | https://status-board-eight.vercel.app/api/health |
+| **Repo** | https://github.com/Georgekiama/status-board |
+| **Database** | Neon PostgreSQL, seeded with the real board (4 areas, 18 projects) |
+
+Everything under `/api/` except `/api/health` requires
+`Authorization: Bearer <API_TOKEN>`. The board picks the token up automatically
+from `/config.js`; the MCP connector needs the header set explicitly.
+
+Custom domain (e.g. `status.litnmore.com`) is not attached yet — add it in the
+Vercel project's domain settings and every path above works unchanged.
+
 ---
 
 ## Quick start
@@ -374,7 +392,59 @@ board, so it is never less protected than the REST API.
 
 ## Deployment (Vercel)
 
-Frontend and API on one origin, which removes CORS entirely.
+**Deployed.** Frontend and API on one origin, which removes CORS entirely. Pushes
+to `main` redeploy automatically.
+
+### The functions are pre-bundled — do not "clean this up"
+
+`api/index.js`, `api/mcp.js` and `api/diag.js` are **generated files that are
+committed on purpose**. Two platform behaviours force this, both discovered the
+hard way:
+
+1. **Vercel does not ship the `src/` tree into a function.** It transpiles
+   `api/*.ts` per file rather than bundling, so a function importing
+   `../src/board/types` fails at module load with `ERR_MODULE_NOT_FOUND` and every
+   request returns `FUNCTION_INVOCATION_FAILED`.
+2. **Vercel only detects functions that exist in the repository.** Generating them
+   during the build is not enough — the paths 404.
+
+So [scripts/build-functions.mjs](scripts/build-functions.mjs) bundles the sources
+in [functions/](functions/) into `api/*.js` with esbuild, and the result is
+committed. `node_modules` stays external (`packages: "external"`) because
+third-party packages *do* resolve fine at runtime from `/var/task/node_modules`;
+only this project's own code needs inlining. That keeps each function around
+23 KB rather than 750 KB.
+
+The build regenerates them on every deploy, so production can never run a stale
+bundle. To check the committed copies match the sources:
+
+```bash
+npm run verify:functions   # rebuilds, then fails if git sees a diff under api/
+```
+
+**Editing a function means editing `functions/*.ts`, then running
+`npm run build:functions` and committing both.** Never edit `api/*.js` by hand.
+
+`pg` and PGlite must also stay out of the bundle — their import specifiers in
+[src/db/client.ts](src/db/client.ts) are assembled at runtime for that reason, and
+there is a comment there explaining why. `pg` depends on `pg-cloudflare`, which
+imports `cloudflare:sockets`, a specifier that does not resolve off Cloudflare.
+
+### /api/diag
+
+[functions/diag.ts](functions/diag.ts) is a diagnostic endpoint that imports each
+module of the real graph inside try/catch and reports which one fails, plus the
+Node version and whether each environment variable is *present* (never its
+value). It exists because a module-load crash produces no usable response, and
+there is no other way to see the error without platform log access — it is what
+identified the bundling problem.
+
+It is unauthenticated by design, since its value is working when everything else
+is broken. It reveals the Node version and this project's module paths, nothing
+more. Delete `functions/diag.ts`, re-run `npm run build:functions`, and remove
+`api/diag.js` if you would rather not expose that.
+
+### First-time setup
 
 1. Push this repo to GitHub and import it into Vercel. No framework preset.
 2. Set environment variables in the Vercel project (all three environments, or at
@@ -382,15 +452,15 @@ Frontend and API on one origin, which removes CORS entirely.
    - `DATABASE_URL` — the Neon pooled URL
    - `API_TOKEN` — the generated token; the build bakes it into `config.js`
    - `ALLOWED_ORIGINS` — leave empty for same-origin
-3. Deploy. Vercel runs `npm run build`, which typechecks and writes
-   `public/config.js`.
+3. Deploy. Vercel runs `npm run build`, which typechecks, writes
+   `public/config.js`, and rebuilds the function bundles.
 4. Run migrations against the production database, from your machine with the
    production `DATABASE_URL` set: `npm run db:migrate`.
 5. Verify: `npm run smoke -- --url https://<deployment>`.
-6. Point `status.litnmore.com` at the deployment in Vercel's domain settings.
+6. Optionally point a custom domain at the deployment in Vercel's domain settings.
 
-Routing ([vercel.json](vercel.json)): `api/mcp.ts` serves `/api/mcp`; every other
-`/api/*` path is rewritten to `api/index.ts`, which dispatches through the shared
+Routing ([vercel.json](vercel.json)): `api/mcp.js` serves `/api/mcp`; every other
+`/api/*` path is rewritten to `api/index.js`, which dispatches through the shared
 handler. `public/` is served statically, so `/` is the board, and `/config.js` is
 served `no-store` so a rotated token takes effect immediately.
 
@@ -399,15 +469,17 @@ fix the type error rather than removing the check.
 
 ### URLs to hand to the frontend developer
 
-Once the domain is attached, substituting the real host:
+Live now:
 
 ```
-Board                https://status.litnmore.com/
-Board API   GET/PUT  https://status.litnmore.com/api/board
-History     GET      https://status.litnmore.com/api/board/history
-Health      GET      https://status.litnmore.com/api/health
-MCP         POST     https://status.litnmore.com/api/mcp
+Board                https://status-board-eight.vercel.app/
+Board API   GET/PUT  https://status-board-eight.vercel.app/api/board
+History     GET      https://status-board-eight.vercel.app/api/board/history
+Health      GET      https://status-board-eight.vercel.app/api/health
+MCP         POST     https://status-board-eight.vercel.app/api/mcp
 ```
+
+Attaching a custom domain later changes only the host.
 
 All of `/api/*` except `/api/health` requires `Authorization: Bearer <API_TOKEN>`.
 The board itself needs no manual wiring — it picks the token up from `/config.js`.
@@ -416,7 +488,7 @@ For the Cowork/Claude MCP connector, use the `/api/mcp` URL with an
 `Authorization: Bearer <API_TOKEN>` header. Verify it before handing it over:
 
 ```bash
-npm run mcp:check -- --url https://status.litnmore.com --token <API_TOKEN>
+npm run mcp:check -- --url https://status-board-eight.vercel.app --token <API_TOKEN>
 ```
 
 Until the domain is live, the same paths work on the `*.vercel.app` deployment
@@ -452,11 +524,11 @@ database **will empty those tables**. Use a scratch database, never production.
 To check a running deployment instead:
 
 ```bash
-npm run smoke -- --url https://status.litnmore.com            # REST, read-only
-npm run smoke -- --url https://status.litnmore.com --write    # REST round-trip
+npm run smoke -- --url https://status-board-eight.vercel.app            # REST, read-only
+npm run smoke -- --url https://status-board-eight.vercel.app --write    # REST round-trip
 
-npm run mcp:check -- --url https://status.litnmore.com          # MCP, read-only
-npm run mcp:check -- --url https://status.litnmore.com --write  # MCP round-trip
+npm run mcp:check -- --url https://status-board-eight.vercel.app          # MCP, read-only
+npm run mcp:check -- --url https://status-board-eight.vercel.app --write  # MCP round-trip
 ```
 
 `smoke` covers REST plus an MCP handshake. `mcp:check` connects as a real MCP
@@ -526,7 +598,7 @@ Neon's own point-in-time restore covers catastrophe. For a file copy before a
 risky change:
 
 ```bash
-curl -s https://status.litnmore.com/api/board | jq .board > board-backup.json
+curl -s -H "Authorization: Bearer $API_TOKEN" \n  https://status-board-eight.vercel.app/api/board | jq .board > board-backup.json
 npm run db:seed -- --file board-backup.json --force   # restore it later
 ```
 
@@ -597,7 +669,10 @@ src/db/            Drizzle schema, driver selection, migration runner
 src/http/          transport-agnostic API handler, CORS, Node server, Vercel adapter
 src/mcp/           MCP server (two tools) plus HTTP and stdio transports
 api/               Vercel functions: index.ts (REST catch-all), mcp.ts
-scripts/           migrate, seed, history, restore, smoke, mcp-check, write-config
+functions/         serverless function sources (TypeScript) -- edit these
+api/               esbuild output, COMMITTED so Vercel detects it -- never hand-edit
+scripts/           migrate, seed, history, restore, smoke, mcp-check, write-config,
+                   build-functions
 tests/             one file per layer, in the order the plan requires them
 drizzle/           generated migration SQL (committed)
 ```
@@ -623,19 +698,19 @@ Done and tested:
 - [x] Deployment steps, environment variables, and test instructions documented
 
 - [x] **Neon PostgreSQL database connected**, migrated, and seeded with the real board
+- [x] **Production API deployed** and verified
+- [x] **Production MCP endpoint deployed** and verified
+- [x] **URLs documented for the frontend developer** (see [Live](#live))
+- [x] **Deployment and rollback/backup procedures documented**
 
-Remaining, and blocked on hosting rather than on code:
+Every box on the plan's checklist is now ticked. The one thing deliberately not
+done is attaching a custom domain, which is a DNS decision rather than a code one.
 
-- [ ] **Production API deployed** / **production MCP endpoint deployed** /
-      **URLs handed to the frontend developer.** Follow
-      [Deployment (Vercel)](#deployment-vercel); the paths are fixed, so only the
-      host name is unknown.
-
-Verify a deployment with:
+Re-verify at any time:
 
 ```bash
-npm run smoke -- --url https://<your-deployment> --write
-npm run mcp:check -- --url https://<your-deployment> --write
+npm run smoke -- --url https://status-board-eight.vercel.app --write
+npm run mcp:check -- --url https://status-board-eight.vercel.app --write
 ```
 
 ## Verified against Neon
@@ -655,3 +730,21 @@ Every layer was exercised against the real Neon database, not just PGlite:
 The automated suite itself still runs on PGlite by design: it truncates both
 tables between tests, so pointing it at Neon would wipe the board. Its job is
 logic correctness; the commands above are what prove the Neon transport.
+
+## Verified against production
+
+| Check | Result |
+| --- | --- |
+| `smoke --write` against the deployment | 16/16 |
+| `mcp:check --write` against the deployment | 17/17 — including history recorded as an `mcp` write |
+| `/api/health` | `{"ok":true,"database":"up"}` — production reaches Neon |
+| `/api/board` without a token | 401 |
+| `/api/mcp` without a token | 401 |
+| `/api/health` without a token | 200, as intended for uptime checks |
+| `/api/diag` module probe | every module resolves |
+| Board page, `/config.js`, `/board-api.js` | all served, token delivered to the page |
+| **Browser path** | the live `config.js` and `board-api.js` were loaded in a sandbox and driven through the board's own two storage calls: load, parse, save, reload, and a rejected save that surfaced as a rejection without damaging the board |
+
+The browser-path check is the one that matters most, because it exercises the
+real deployed scripts rather than a local copy. It is content-neutral — it writes
+back exactly what it read.
