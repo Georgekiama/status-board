@@ -3,6 +3,10 @@ import { BoardError, BoardValidationError } from "../board/errors";
 import { boardService } from "../board/service";
 import type { BoardRecord, WriteSource } from "../board/types";
 import { corsHeaders } from "./cors";
+import { authenticate } from "../oauth/authenticate";
+import { isOAuthPath, resolveBaseUrl } from "../oauth/config";
+import { handleOAuth } from "../oauth/handlers";
+import { challengeHeader } from "../oauth/metadata";
 
 /** Reject bodies before parsing them. Generous next to MAX_BOARD_BYTES. */
 export const MAX_REQUEST_BYTES = 2_000_000;
@@ -20,7 +24,14 @@ export interface ApiRequest {
 export interface ApiResponse {
   status: number;
   headers: Record<string, string>;
+  /** JSON-serialised body. Ignored when `text` is set. */
   body: unknown;
+  /**
+   * Raw response body, for the OAuth sign-in page and redirects, which cannot be
+   * JSON. When set, `contentType` decides the header and `body` is unused.
+   */
+  text?: string;
+  contentType?: string;
 }
 
 export interface ApiContext {
@@ -73,21 +84,32 @@ function readExpectedVersion(payload: unknown, headers: Record<string, string | 
 }
 
 /**
- * When API_TOKEN is set, every request must present it. Unset means open --
- * the documented v1 default (plan.md section 7).
+ * Accepts either the static API_TOKEN or an OAuth access token. A credential is
+ * required only when API_TOKEN is set (plan.md section 7).
+ *
+ * The 401 carries a `resource_metadata` challenge pointing at the OAuth
+ * discovery document. That pointer is what lets an MCP client find the
+ * authorization server — without it, Claude's connector cannot register.
  */
-function authorize(req: ApiRequest, env: NodeJS.ProcessEnv): ApiResponse | undefined {
-  const expected = env.API_TOKEN;
-  if (!expected) return undefined;
-
-  const bearer = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
-  const supplied = bearer || req.headers["x-api-token"]?.trim();
-  if (supplied && supplied === expected) return undefined;
+async function authorize(req: ApiRequest, ctx: ApiContext, baseUrl: string): Promise<ApiResponse | undefined> {
+  const result = await authenticate(req.headers, { db: ctx.db, env: ctx.env ?? process.env });
+  if (result.ok) return undefined;
 
   return {
     status: 401,
-    headers: { "WWW-Authenticate": "Bearer" },
-    body: errorBody("unauthorized", "A valid API token is required."),
+    headers: {
+      "WWW-Authenticate": challengeHeader(
+        baseUrl,
+        result.reason === "invalid" ? "invalid_token" : undefined,
+        result.reason === "invalid" ? "The credential is expired, revoked or unknown." : undefined,
+      ),
+    },
+    body: errorBody(
+      "unauthorized",
+      result.reason === "invalid"
+        ? "The credential presented is expired, revoked or unknown."
+        : "Authentication is required. Use an API token, or authorize through OAuth.",
+    ),
   };
 }
 
@@ -115,7 +137,17 @@ export async function handleApi(req: ApiRequest, ctx: ApiContext = {}): Promise<
     return respond(await handleHealth(ctx));
   }
 
-  const unauthorized = authorize(req, env);
+  // The authorization server sits outside the token gate: a client cannot
+  // present a credential until it has been through this flow to get one.
+  if (isOAuthPath(path)) {
+    try {
+      return respond(await handleOAuth(req, ctx));
+    } catch (error) {
+      return respond(toErrorResponse(error));
+    }
+  }
+
+  const unauthorized = await authorize(req, ctx, resolveBaseUrl(req.headers, env));
   if (unauthorized) return respond(unauthorized);
 
   try {

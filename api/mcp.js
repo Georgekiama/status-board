@@ -9,56 +9,29 @@ var __export = (target, all) => {
 // src/mcp/http.ts
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-// src/mcp/server.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z as z2 } from "zod";
+// src/oauth/crypto.ts
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+function hashSecret(value) {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+function timingSafeCompare(a, b) {
+  const bufferA = Buffer.from(hashSecret(a), "hex");
+  const bufferB = Buffer.from(hashSecret(b), "hex");
+  return timingSafeEqual(bufferA, bufferB);
+}
 
-// src/board/errors.ts
-var BoardError = class extends Error {
-  status;
-  code;
-  constructor(message, code, status) {
-    super(message);
-    this.name = new.target.name;
-    this.code = code;
-    this.status = status;
-  }
-};
-var BoardValidationError = class extends BoardError {
-  issues;
-  constructor(issues) {
-    super(`Board payload is invalid (${issues.length} problem${issues.length === 1 ? "" : "s"})`, "invalid_board", 400);
-    this.issues = issues;
-  }
-};
-var VersionConflictError = class extends BoardError {
-  expectedVersion;
-  currentVersion;
-  constructor(expectedVersion, currentVersion) {
-    super(
-      `Board has changed: expected version ${expectedVersion} but current version is ${currentVersion}`,
-      "version_conflict",
-      409
-    );
-    this.expectedVersion = expectedVersion;
-    this.currentVersion = currentVersion;
-  }
-};
-var NotFoundError = class extends BoardError {
-  constructor(message) {
-    super(message, "not_found", 404);
-  }
-};
-
-// src/board/service.ts
-import { desc, eq, sql as sql2 } from "drizzle-orm";
+// src/oauth/store.ts
+import { and, eq, isNull, lt, sql as sql2 } from "drizzle-orm";
 
 // src/db/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
   SINGLETON_BOARD_ID: () => SINGLETON_BOARD_ID,
   board: () => board,
-  boardHistory: () => boardHistory
+  boardHistory: () => boardHistory,
+  oauthClients: () => oauthClients,
+  oauthCodes: () => oauthCodes,
+  oauthTokens: () => oauthTokens
 });
 import { sql } from "drizzle-orm";
 import { check, index, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
@@ -88,6 +61,58 @@ var boardHistory = pgTable(
   (t) => [
     index("board_history_replaced_at_idx").on(t.replacedAt),
     index("board_history_version_idx").on(t.version)
+  ]
+);
+var oauthClients = pgTable(
+  "oauth_clients",
+  {
+    clientId: text("client_id").primaryKey(),
+    /** SHA-256 of the secret. Null for public clients (PKCE only). */
+    clientSecretHash: text("client_secret_hash"),
+    clientName: text("client_name"),
+    /** Exact-match allow-list. A redirect_uri not in here is refused. */
+    redirectUris: jsonb("redirect_uris").$type().notNull(),
+    grantTypes: jsonb("grant_types").$type().notNull(),
+    tokenEndpointAuthMethod: text("token_endpoint_auth_method").notNull().default("client_secret_post"),
+    scope: text("scope").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index("oauth_clients_created_at_idx").on(t.createdAt)]
+);
+var oauthCodes = pgTable(
+  "oauth_codes",
+  {
+    codeHash: text("code_hash").primaryKey(),
+    clientId: text("client_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    /** PKCE (RFC 7636). S256 only — plain is not accepted. */
+    codeChallenge: text("code_challenge").notNull(),
+    codeChallengeMethod: text("code_challenge_method").notNull().default("S256"),
+    scope: text("scope").notNull(),
+    /** RFC 8707 resource indicator, recorded for auditing. */
+    resource: text("resource"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index("oauth_codes_expires_at_idx").on(t.expiresAt)]
+);
+var oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    /** "access" | "refresh" */
+    kind: text("kind").$type().notNull(),
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(),
+    resource: text("resource"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index("oauth_tokens_client_id_idx").on(t.clientId),
+    index("oauth_tokens_expires_at_idx").on(t.expiresAt)
   ]
 );
 
@@ -173,6 +198,128 @@ function getDbHandle(explicitUrl) {
 async function getDb(explicitUrl) {
   return (await getDbHandle(explicitUrl)).db;
 }
+
+// src/oauth/config.ts
+var SCOPES = ["board:read", "board:write"];
+var DEFAULT_SCOPE = SCOPES.join(" ");
+var ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24;
+var REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 90;
+var OAUTH_ROUTES = {
+  protectedResourceMetadata: "/.well-known/oauth-protected-resource",
+  authorizationServerMetadata: "/.well-known/oauth-authorization-server",
+  authorize: "/oauth/authorize",
+  token: "/oauth/token",
+  register: "/oauth/register",
+  revoke: "/oauth/revoke"
+};
+function resolveBaseUrl(headers, env = process.env) {
+  if (env.PUBLIC_BASE_URL) return env.PUBLIC_BASE_URL.replace(/\/$/, "");
+  const forwardedHost = headers["x-forwarded-host"];
+  const host = (forwardedHost || headers.host || "localhost").split(",")[0]?.trim() ?? "localhost";
+  const forwardedProto = headers["x-forwarded-proto"]?.split(",")[0]?.trim();
+  const proto = forwardedProto || (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+  return proto + "://" + host;
+}
+
+// src/oauth/store.ts
+async function resolve(db) {
+  return db ?? await getDb();
+}
+async function findLiveToken(token, kind, db) {
+  const rows = await db.select().from(oauthTokens).where(and(eq(oauthTokens.tokenHash, hashSecret(token)), eq(oauthTokens.kind, kind))).limit(1);
+  const row = rows[0];
+  if (!row) return void 0;
+  if (row.revokedAt) return void 0;
+  if (row.expiresAt.getTime() <= Date.now()) return void 0;
+  return row;
+}
+async function verifyAccessToken(token, options = {}) {
+  const db = await resolve(options.db);
+  const row = await findLiveToken(token, "access", db);
+  if (!row) return void 0;
+  return { kind: "oauth", clientId: row.clientId, scope: row.scope };
+}
+
+// src/oauth/authenticate.ts
+function extractBearer(headers) {
+  const header = headers.authorization;
+  if (header && /^bearer\s+/i.test(header)) {
+    const value = header.replace(/^bearer\s+/i, "").trim();
+    if (value) return value;
+  }
+  const alternative = headers["x-api-token"]?.trim();
+  return alternative || void 0;
+}
+async function authenticate(headers, options = {}) {
+  const env = options.env ?? process.env;
+  const staticToken = env.API_TOKEN;
+  const presented = extractBearer(headers);
+  if (!presented) {
+    if (!staticToken) return { ok: true, identity: { kind: "anonymous", scope: "board:read board:write" } };
+    return { ok: false, reason: "missing" };
+  }
+  if (staticToken && timingSafeCompare(presented, staticToken)) {
+    return { ok: true, identity: { kind: "static", scope: "board:read board:write" } };
+  }
+  const oauthIdentity = await verifyAccessToken(presented, { db: options.db });
+  if (oauthIdentity) return { ok: true, identity: oauthIdentity };
+  return { ok: false, reason: "invalid" };
+}
+
+// src/oauth/metadata.ts
+function challengeHeader(baseUrl, error, description) {
+  const parts = [
+    'Bearer realm="status-board"',
+    'resource_metadata="' + baseUrl + OAUTH_ROUTES.protectedResourceMetadata + '"'
+  ];
+  if (error) parts.push('error="' + error + '"');
+  if (description) parts.push('error_description="' + description.replace(/"/g, "'") + '"');
+  return parts.join(", ");
+}
+
+// src/mcp/server.ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z as z2 } from "zod";
+
+// src/board/errors.ts
+var BoardError = class extends Error {
+  status;
+  code;
+  constructor(message, code, status) {
+    super(message);
+    this.name = new.target.name;
+    this.code = code;
+    this.status = status;
+  }
+};
+var BoardValidationError = class extends BoardError {
+  issues;
+  constructor(issues) {
+    super(`Board payload is invalid (${issues.length} problem${issues.length === 1 ? "" : "s"})`, "invalid_board", 400);
+    this.issues = issues;
+  }
+};
+var VersionConflictError = class extends BoardError {
+  expectedVersion;
+  currentVersion;
+  constructor(expectedVersion, currentVersion) {
+    super(
+      `Board has changed: expected version ${expectedVersion} but current version is ${currentVersion}`,
+      "version_conflict",
+      409
+    );
+    this.expectedVersion = expectedVersion;
+    this.currentVersion = currentVersion;
+  }
+};
+var NotFoundError = class extends BoardError {
+  constructor(message) {
+    super(message, "not_found", 404);
+  }
+};
+
+// src/board/service.ts
+import { desc, eq as eq2, sql as sql3 } from "drizzle-orm";
 
 // src/board/validate.ts
 import { z } from "zod";
@@ -286,10 +433,10 @@ async function resolveDb(db) {
   return db ?? await getDb();
 }
 async function ensureRow(db) {
-  const existing = await db.select().from(board).where(eq(board.id, SINGLETON_BOARD_ID)).limit(1);
+  const existing = await db.select().from(board).where(eq2(board.id, SINGLETON_BOARD_ID)).limit(1);
   if (existing[0]) return existing[0];
   await db.insert(board).values({ id: SINGLETON_BOARD_ID, version: 1, data: EMPTY_BOARD }).onConflictDoNothing({ target: board.id });
-  const created = await db.select().from(board).where(eq(board.id, SINGLETON_BOARD_ID)).limit(1);
+  const created = await db.select().from(board).where(eq2(board.id, SINGLETON_BOARD_ID)).limit(1);
   if (!created[0]) throw new Error("Failed to initialise the board row");
   return created[0];
 }
@@ -308,7 +455,7 @@ async function updateBoard(input, options = {}) {
   const source = options.source ?? "rest";
   await ensureRow(db);
   return db.transaction(async (tx) => {
-    const locked = await tx.select().from(board).where(eq(board.id, SINGLETON_BOARD_ID)).limit(1).for("update");
+    const locked = await tx.select().from(board).where(eq2(board.id, SINGLETON_BOARD_ID)).limit(1).for("update");
     const current = locked[0];
     if (!current) throw new Error("Board row disappeared mid-transaction");
     if (options.expectedVersion !== void 0 && options.expectedVersion !== current.version) {
@@ -317,7 +464,7 @@ async function updateBoard(input, options = {}) {
     const archived = await tx.insert(boardHistory).values({ version: current.version, data: current.data, source }).returning({ id: boardHistory.id });
     const historyId = archived[0]?.id;
     if (historyId === void 0) throw new Error("Failed to archive the previous board");
-    const updated = await tx.update(board).set({ data: validation.board, version: current.version + 1, updatedAt: sql2`now()` }).where(eq(board.id, SINGLETON_BOARD_ID)).returning();
+    const updated = await tx.update(board).set({ data: validation.board, version: current.version + 1, updatedAt: sql3`now()` }).where(eq2(board.id, SINGLETON_BOARD_ID)).returning();
     const next = updated[0];
     if (!next) throw new Error("Failed to write the new board");
     return {
@@ -353,7 +500,7 @@ async function listHistory(options = {}) {
 }
 async function getHistoryEntry(id, options = {}) {
   const db = await resolveDb(options.db);
-  const rows = await db.select().from(boardHistory).where(eq(boardHistory.id, id)).limit(1);
+  const rows = await db.select().from(boardHistory).where(eq2(boardHistory.id, id)).limit(1);
   const row = rows[0];
   if (!row) throw new NotFoundError(`No board_history row with id ${id}`);
   return {
@@ -515,23 +662,36 @@ function messageOf(error) {
 }
 
 // src/mcp/http.ts
-function sendJsonRpcError(res, status, code, message) {
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
+function headerRecord(req) {
+  const headers = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    headers[key.toLowerCase()] = Array.isArray(value) ? value.join(", ") : value;
+  }
+  return headers;
 }
-function authorized(req, env) {
-  const expected = env.API_TOKEN;
-  if (!expected) return true;
-  const header = req.headers.authorization;
-  const bearer = Array.isArray(header) ? header[0] : header;
-  const supplied = bearer?.replace(/^Bearer\s+/i, "").trim() || (Array.isArray(req.headers["x-api-token"]) ? req.headers["x-api-token"][0] : req.headers["x-api-token"])?.trim();
-  return Boolean(supplied) && supplied === expected;
+function sendJsonRpcError(res, status, code, message, headers = {}) {
+  res.writeHead(status, { "Content-Type": "application/json", ...headers });
+  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
 }
 async function handleMcpRequest(req, res, options = {}) {
   const env = options.env ?? process.env;
-  if (!authorized(req, env)) {
-    res.setHeader("WWW-Authenticate", "Bearer");
-    sendJsonRpcError(res, 401, -32001, "A valid API token is required.");
+  const headers = headerRecord(req);
+  const baseUrl = resolveBaseUrl(headers, env);
+  const auth = await authenticate(headers, { db: options.ctx?.db, env });
+  if (!auth.ok) {
+    sendJsonRpcError(
+      res,
+      401,
+      -32001,
+      auth.reason === "invalid" ? "The credential presented is expired, revoked or unknown." : "Authentication is required.",
+      {
+        "WWW-Authenticate": challengeHeader(
+          baseUrl,
+          auth.reason === "invalid" ? "invalid_token" : void 0,
+          auth.reason === "invalid" ? "The credential is expired, revoked or unknown." : void 0
+        )
+      }
+    );
     return;
   }
   let parsedBody;

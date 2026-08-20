@@ -1,5 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { authenticate } from "../oauth/authenticate";
+import { resolveBaseUrl } from "../oauth/config";
+import { challengeHeader } from "../oauth/metadata";
 import { createMcpServer, type McpContext } from "./server";
 
 export interface McpHttpOptions {
@@ -9,26 +12,17 @@ export interface McpHttpOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-function sendJsonRpcError(res: ServerResponse, status: number, code: number, message: string): void {
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
+function headerRecord(req: IncomingMessage): Record<string, string | undefined> {
+  const headers: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    headers[key.toLowerCase()] = Array.isArray(value) ? value.join(", ") : value;
+  }
+  return headers;
 }
 
-/**
- * When API_TOKEN is set, the MCP endpoint requires it too. This endpoint can
- * write the board, so it is never less protected than the REST API.
- */
-function authorized(req: IncomingMessage, env: NodeJS.ProcessEnv): boolean {
-  const expected = env.API_TOKEN;
-  if (!expected) return true;
-
-  const header = req.headers.authorization;
-  const bearer = Array.isArray(header) ? header[0] : header;
-  const supplied =
-    bearer?.replace(/^Bearer\s+/i, "").trim() ||
-    (Array.isArray(req.headers["x-api-token"]) ? req.headers["x-api-token"][0] : req.headers["x-api-token"])?.trim();
-
-  return Boolean(supplied) && supplied === expected;
+function sendJsonRpcError(res: ServerResponse, status: number, code: number, message: string, headers: Record<string, string> = {}): void {
+  res.writeHead(status, { "Content-Type": "application/json", ...headers });
+  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
 }
 
 /**
@@ -37,6 +31,13 @@ function authorized(req: IncomingMessage, env: NodeJS.ProcessEnv): boolean {
  * Stateless: a fresh server and transport per request, so this works unchanged
  * on a long-running Node process and on Vercel, where no state survives between
  * invocations anyway.
+ *
+ * Authentication accepts either the static API_TOKEN or an OAuth access token,
+ * through the same `authenticate` used by the REST API. The 401 carries a
+ * `WWW-Authenticate` challenge with a `resource_metadata` pointer, which is what
+ * lets an MCP client discover the authorization server and register itself. A
+ * bare `Bearer` challenge is why Claude's connector previously failed with
+ * "couldn't register with the sign-in service".
  */
 export async function handleMcpRequest(
   req: IncomingMessage,
@@ -44,10 +45,26 @@ export async function handleMcpRequest(
   options: McpHttpOptions = {},
 ): Promise<void> {
   const env = options.env ?? process.env;
+  const headers = headerRecord(req);
+  const baseUrl = resolveBaseUrl(headers, env);
 
-  if (!authorized(req, env)) {
-    res.setHeader("WWW-Authenticate", "Bearer");
-    sendJsonRpcError(res, 401, -32001, "A valid API token is required.");
+  const auth = await authenticate(headers, { db: options.ctx?.db, env });
+  if (!auth.ok) {
+    sendJsonRpcError(
+      res,
+      401,
+      -32001,
+      auth.reason === "invalid"
+        ? "The credential presented is expired, revoked or unknown."
+        : "Authentication is required.",
+      {
+        "WWW-Authenticate": challengeHeader(
+          baseUrl,
+          auth.reason === "invalid" ? "invalid_token" : undefined,
+          auth.reason === "invalid" ? "The credential is expired, revoked or unknown." : undefined,
+        ),
+      },
+    );
     return;
   }
 

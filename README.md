@@ -26,9 +26,10 @@ cannot behave differently.
 | **Repo** | https://github.com/Georgekiama/status-board |
 | **Database** | Neon PostgreSQL, seeded with the real board (4 areas, 18 projects) |
 
-Everything under `/api/` except `/api/health` requires
-`Authorization: Bearer <API_TOKEN>`. The board picks the token up automatically
-from `/config.js`; the MCP connector needs the header set explicitly.
+Everything under `/api/` except `/api/health` requires a credential — either the
+static `API_TOKEN` or an OAuth access token. The board picks the static token up
+automatically from `/config.js`. Claude/Cowork connectors use OAuth; see
+[Connecting Claude or Cowork](#connecting-claude-or-cowork).
 
 Custom domain (e.g. `status.litnmore.com`) is not attached yet — add it in the
 Vercel project's domain settings and every path above works unchanged.
@@ -62,7 +63,9 @@ than an empty page.
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Postgres connection string. In production, the Neon **pooled** URL. |
 | `ALLOWED_ORIGINS` | no | Comma-separated browser origins allowed to call the API. Leave **empty** when the frontend is served from the same origin (the recommended setup). Never a wildcard. |
-| `API_TOKEN` | recommended | When set, every `/api/board*` and `/api/mcp` request must send `Authorization: Bearer <token>`. `/api/health` stays open so uptime checks keep working. Unset means the API is open. See [Access control](#access-control). |
+| `API_TOKEN` | recommended | When set, every `/api/board*` and `/api/mcp` request must present a credential. `/api/health` stays open so uptime checks keep working. Unset means the API is open. See [Access control](#access-control). |
+| `BOARD_PASSWORD` | required for connectors | Shared password for the OAuth sign-in page. Without it `/oauth/authorize` returns 503 and no connector can be authorized. |
+| `PUBLIC_BASE_URL` | no | Overrides the base URL used in OAuth metadata. Normally derived from the request; only needed behind a proxy that rewrites `Host`. |
 | `PORT` | no | Local dev port. Ignored on Vercel. |
 | `TEST_DATABASE_URL` | no | Where `npm test` runs. Defaults to in-memory PGlite; `DATABASE_URL` is deliberately ignored so tests can never touch production. |
 | `SKIP_MIGRATIONS` | no | Set to `1` to stop the server and stdio MCP from migrating on boot. |
@@ -77,8 +80,21 @@ the browser only ever talks to `/api/*`.
 
 ## Access control
 
-`API_TOKEN` is set, so the API and the MCP endpoint both require
-`Authorization: Bearer <token>`. `/api/health` is deliberately exempt.
+Two credential types are accepted, both resolved by one function
+([src/oauth/authenticate.ts](src/oauth/authenticate.ts)) so REST and MCP cannot
+drift apart:
+
+| Credential | Used by | Notes |
+| --- | --- | --- |
+| Static `API_TOKEN` | the board page, the CLI check scripts | One shared secret. Delivered to the browser via `/config.js`. |
+| OAuth access token | Claude/Cowork connectors | Per-client, expiring, revocable. See [Connecting Claude or Cowork](#connecting-claude-or-cowork). |
+
+`/api/health` is deliberately exempt from both, so uptime checks keep working.
+The OAuth endpoints are exempt too — a client cannot present a credential until
+it has been through the flow that issues one.
+
+A credential is required only when `API_TOKEN` is set. That keeps local
+development and the test suite open by default while production stays closed.
 
 The board runs in a browser, so it needs that token client-side. It is **not**
 committed: `scripts/write-config.ts` writes `public/config.js` from the
@@ -112,6 +128,80 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 Put the new value in `API_TOKEN` in the Vercel project and redeploy (the build
 regenerates `config.js`), then update the MCP connector and any local `.env`.
 `config.js` is served `no-store`, so no browser keeps serving an old token.
+
+---
+
+## Connecting Claude or Cowork
+
+Claude custom connectors cannot use a static bearer token. On a `401` they follow
+the MCP authorization spec: fetch discovery metadata, register themselves
+dynamically, and run an authorization-code exchange. A plain `Bearer` challenge
+leaves them nowhere to go, which is why adding the connector originally failed
+with *"Couldn't register with Status Board's sign-in service."*
+
+So this deployment is also a small OAuth 2.1 authorization server.
+
+### Adding the connector
+
+1. Make sure `BOARD_PASSWORD` is set in the Vercel project. Without it the
+   sign-in page returns 503 and authorization cannot be granted.
+2. In Claude, add a custom connector with the MCP URL:
+   `https://status-board-eight.vercel.app/api/mcp`
+3. Leave the OAuth Client ID and Secret fields **empty** — the connector
+   registers itself automatically.
+4. Claude opens a sign-in page. Enter the board password. That is the only
+   moment a human is involved.
+5. The connector is now authorized and `get_board` / `update_board` are available.
+
+### What it implements
+
+| Endpoint | Purpose |
+| --- | --- |
+| `/.well-known/oauth-protected-resource` | RFC 9728 — names the authorization server guarding `/api/mcp` |
+| `/.well-known/oauth-authorization-server` | RFC 8414 — endpoints and capabilities |
+| `POST /oauth/register` | RFC 7591 dynamic client registration |
+| `GET`/`POST /oauth/authorize` | sign-in page, then a redirect carrying the code |
+| `POST /oauth/token` | authorization-code and refresh-token grants |
+| `POST /oauth/revoke` | RFC 7009 revocation |
+
+Deliberate choices:
+
+- **PKCE is mandatory and S256 only.** `plain` offers no protection against an
+  intercepted code, and every current MCP client supports S256.
+- **Authorization codes live 120 seconds and are single-use.** Redemption is an
+  atomic `UPDATE ... WHERE used_at IS NULL`, so a replay loses the race even if
+  it arrives simultaneously.
+- **Refresh tokens rotate.** The old one is revoked as part of the swap, so a
+  leaked refresh token dies the next time the real client refreshes.
+- **Redirect URIs must match exactly** what the client registered, and an
+  unknown `client_id` or `redirect_uri` renders an error page rather than
+  redirecting — redirecting to an unverified URI is how open redirectors happen.
+- **Nothing secret is stored in the clear.** Client secrets, codes and tokens are
+  kept as SHA-256 hashes and looked up by hash. `BOARD_PASSWORD` is never stored
+  at all, only compared in constant time.
+
+### Managing access
+
+```bash
+npm run oauth:admin                          # list clients and their live tokens
+npm run oauth:admin -- --revoke sbc_abc123   # cut off one connector
+npm run oauth:admin -- --prune               # delete expired codes and tokens
+```
+
+Revoking takes effect on the next request — there is no cached token to wait out.
+
+### Verifying it
+
+```bash
+npm run oauth:check -- --url https://status-board-eight.vercel.app
+npm run oauth:check -- --url https://... --password '<BOARD_PASSWORD>'
+```
+
+Without `--password` it checks everything up to the sign-in prompt: the 401
+challenge, both discovery documents, registration, the sign-in page, and that an
+unregistered `redirect_uri` and a wrong password are both refused. With
+`--password` it completes the exchange, uses the token against the board and MCP,
+then revokes both tokens so nothing is left live.
 
 ---
 
@@ -500,7 +590,7 @@ this repo (no hosting account or Neon project was available here).
 ## Running the tests
 
 ```bash
-npm test              # everything, 159 tests
+npm test              # everything, 205 tests
 npm run test:db       # schema, migrations, JSONB round-trip, transactions
 npm run test:validate # accepted and rejected payloads, warnings
 npm run test:api      # GET/PUT, rejections, CORS, token, real HTTP
@@ -529,6 +619,8 @@ npm run smoke -- --url https://status-board-eight.vercel.app --write    # REST r
 
 npm run mcp:check -- --url https://status-board-eight.vercel.app          # MCP, read-only
 npm run mcp:check -- --url https://status-board-eight.vercel.app --write  # MCP round-trip
+
+npm run oauth:check -- --url https://status-board-eight.vercel.app        # OAuth, no password needed
 ```
 
 `smoke` covers REST plus an MCP handshake. `mcp:check` connects as a real MCP
@@ -563,6 +655,15 @@ content does not change, though it does bump the version and add a history row.
   and failure behaviour: database down → 503 saying "not saved", health
   reporting down, client disconnect mid-request, oversized body, and a JSON
   error body on every failure.
+- **OAuth** — PKCE verification including refusal of `plain` and out-of-range
+  verifiers; both discovery documents; the 401 challenge carrying a
+  `resource_metadata` pointer; dynamic client registration including refusal of
+  `javascript:`/`data:`/`file:` and non-loopback `http` redirect URIs; the sign-in
+  page; and then the attacks — unknown client, unregistered `redirect_uri`
+  (asserting no redirect happens), missing PKCE, wrong verifier, replayed code,
+  code issued to another client, mismatched `redirect_uri` at exchange, wrong
+  client secret, refresh-token reuse after rotation, cross-client refresh, and
+  that a revoked token is refused by the board immediately.
 - **Config seam** — `renderConfig` output, `/config.js` delivery and no-store
   headers, and the board bootstrapping through config.js against a
   token-protected API — including that a missing token fails loudly instead of
@@ -606,14 +707,16 @@ npm run db:seed -- --file board-backup.json --force   # restore it later
 
 ## Known v1 limitations
 
-1. **No real authentication — a shared token, not user accounts.** `API_TOKEN`
-   is enabled, which stops anonymous API and MCP access. But the board is a
-   browser page, so the token is served to it at `/config.js` and is readable by
-   anyone who can open the board. There are no user accounts, no roles, and no
-   audit of *who* made a change (only whether it came from the browser or the
-   agent). Genuine privacy needs the deployment behind Vercel's access controls
-   or an SSO proxy, or real auth in v2. **Until then, treat the URL itself as the
-   secret and do not share it outside the team.**
+1. **No user accounts — one shared password, and a token the browser can read.**
+   The MCP side is now properly protected: connectors hold per-client, expiring,
+   revocable OAuth tokens gated behind `BOARD_PASSWORD`. The **browser** side is
+   the weak half — the board page is served the static `API_TOKEN` at
+   `/config.js`, so anyone who can open the board can read it and call the API
+   directly. There are also no individual accounts, no roles, and no record of
+   *which person* made a change (only whether it came from the browser, the agent,
+   a seed or a restore). Closing the browser gap means putting the deployment
+   behind Vercel's access controls or an SSO proxy, or giving the board itself a
+   sign-in. **Until then, treat the board URL as the secret.**
 2. **Last write wins.** Two people editing simultaneously: the later save
    overwrites the earlier one wholesale. The overwritten version is always in
    `board_history`, so nothing is lost permanently, but no one is warned.
@@ -664,6 +767,8 @@ public/index.html  the same file plus two <script> tags — what actually gets s
 public/board-api.js  window.storage replacement backed by the API
 public/config.js   generated at build time from API_TOKEN; gitignored
 seed/              initial-board.json, extracted from the HTML's seedData
+src/oauth/         the authorization server: metadata, registration, authorize,
+                   token, revocation, storage, and the shared authenticator
 src/board/         types, validation, errors, and boardService — the single source of truth
 src/db/            Drizzle schema, driver selection, migration runner
 src/http/          transport-agnostic API handler, CORS, Node server, Vercel adapter
@@ -671,8 +776,8 @@ src/mcp/           MCP server (two tools) plus HTTP and stdio transports
 api/               Vercel functions: index.ts (REST catch-all), mcp.ts
 functions/         serverless function sources (TypeScript) -- edit these
 api/               esbuild output, COMMITTED so Vercel detects it -- never hand-edit
-scripts/           migrate, seed, history, restore, smoke, mcp-check, write-config,
-                   build-functions
+scripts/           migrate, seed, history, restore, smoke, mcp-check, oauth-check,
+                   oauth-admin, write-config, build-functions
 tests/             one file per layer, in the order the plan requires them
 drizzle/           generated migration SQL (committed)
 ```

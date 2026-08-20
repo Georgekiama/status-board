@@ -5,7 +5,7 @@ import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderConfig } from "../../scripts/write-config";
 import { handleMcpRequest } from "../mcp/http";
-import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest } from "./handlers";
+import { handleApi, MAX_REQUEST_BYTES, type ApiContext, type ApiRequest, type ApiResponse } from "./handlers";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public", import.meta.url));
 
@@ -64,6 +64,19 @@ function sendJson(res: ServerResponse, status: number, headers: Record<string, s
   res.end(payload);
 }
 
+/** Write an ApiResponse, which may carry HTML or a redirect instead of JSON. */
+function sendApiResponse(res: ServerResponse, response: ApiResponse): void {
+  if (response.text !== undefined) {
+    res.writeHead(response.status, {
+      ...response.headers,
+      "Content-Type": response.contentType ?? "text/plain; charset=utf-8",
+    });
+    res.end(response.text);
+    return;
+  }
+  sendJson(res, response.status, response.headers, response.body);
+}
+
 /**
  * Serve a file out of public/. Path traversal is blocked by resolving inside
  * PUBLIC_DIR and rejecting anything that escapes it.
@@ -106,7 +119,14 @@ export function createNodeServer(ctx: ApiContext = {}): Server {
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
 
-    if (!url.pathname.startsWith("/api/")) {
+    // The OAuth endpoints and their discovery documents are served by the same
+    // handler as the API, even though they do not live under /api/.
+    const isApiPath =
+      url.pathname.startsWith("/api/") ||
+      url.pathname.startsWith("/oauth/") ||
+      url.pathname.startsWith("/.well-known/oauth-");
+
+    if (!isApiPath) {
       if (req.method !== "GET" && req.method !== "HEAD") {
         sendJson(res, 405, { Allow: "GET, HEAD" }, { error: { code: "method_not_allowed", message: "Static files are read-only." } });
         return;
@@ -149,8 +169,7 @@ export function createNodeServer(ctx: ApiContext = {}): Server {
     }
 
     try {
-      const response = await handleApi(toApiRequest(req, rawBody), ctx);
-      sendJson(res, response.status, response.headers, response.body);
+      sendApiResponse(res, await handleApi(toApiRequest(req, rawBody), ctx));
     } catch (error) {
       console.error("[server] unhandled error:", error);
       sendJson(res, 500, {}, { error: { code: "internal_error", message: "Unexpected server error." } });

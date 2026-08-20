@@ -17,9 +17,50 @@
     {
       "source": "/api/health",
       "destination": "/api/index"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/oauth/(.*)",
+      "destination": "/api/index"
     }
   ],
   "headers": [
+    {
+      "source": "/oauth/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
     {
       "source": "/config.js",
       "headers": [

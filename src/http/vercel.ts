@@ -64,6 +64,16 @@ export async function serveApi(
 
   const response = await handleApi(toApiRequest(req, rawBody), ctx);
 
+  // The OAuth sign-in page and its redirects are not JSON.
+  if (response.text !== undefined) {
+    res.writeHead(response.status, {
+      ...response.headers,
+      "Content-Type": response.contentType ?? "text/plain; charset=utf-8",
+    });
+    res.end(response.text);
+    return;
+  }
+
   if (response.body === null || response.body === undefined) {
     res.writeHead(response.status, response.headers);
     res.end();

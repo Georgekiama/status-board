@@ -28,7 +28,9 @@
     "mcp:check": "node --env-file-if-exists=.env --import tsx scripts/mcp-check.ts",
     "config": "node --env-file-if-exists=.env --import tsx scripts/write-config.ts",
     "build:functions": "node scripts/build-functions.mjs",
-    "verify:functions": "node scripts/build-functions.mjs && git diff --exit-code -- api"
+    "verify:functions": "node scripts/build-functions.mjs && git diff --exit-code -- api",
+    "oauth:check": "node --env-file-if-exists=.env --import tsx scripts/oauth-check.ts",
+    "oauth:admin": "node --env-file-if-exists=.env --import tsx scripts/oauth-admin.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
