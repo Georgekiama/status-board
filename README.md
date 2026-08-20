@@ -849,6 +849,8 @@ logic correctness; the commands above are what prove the Neon transport.
 | `/api/diag` module probe | every module resolves |
 | Board page, `/config.js`, `/board-api.js` | all served, token delivered to the page |
 | **Browser path** | the live `config.js` and `board-api.js` were loaded in a sandbox and driven through the board's own two storage calls: load, parse, save, reload, and a rejected save that surfaced as a rejection without damaging the board |
+| `oauth:check` against the deployment | 401 challenge, both discovery documents, dynamic client registration, and an unregistered `redirect_uri` refused without redirecting |
+| Sign-in page | **pending `BOARD_PASSWORD`** in the Vercel project. Until it is set, `/oauth/authorize` returns 503 and no connector can be authorized. Everything before that step passes. |
 
 The browser-path check is the one that matters most, because it exercises the
 real deployed scripts rather than a local copy. It is content-neutral — it writes
