@@ -71,22 +71,31 @@ function methodNotAllowed(allowed: string[]): ApiResponse {
   });
 }
 
-/** Token and revocation endpoints are form-encoded, but accept JSON too. */
+/**
+ * Read a form-encoded or JSON body.
+ *
+ * The shape of the payload decides, not the declared content type: a hosting
+ * platform may pre-parse a form body and hand it back re-serialised, so trusting
+ * the header alone is how form fields silently arrive empty.
+ */
 function parseBody(req: ApiRequest): URLSearchParams {
-  const contentType = req.headers["content-type"] ?? "";
-  if (contentType.includes("application/json")) {
+  const raw = req.rawBody ?? "";
+  const trimmed = raw.trim();
+
+  if (trimmed.startsWith("{")) {
     try {
-      const parsed = JSON.parse(req.rawBody || "{}") as Record<string, unknown>;
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(parsed)) {
         if (value !== undefined && value !== null) params.set(key, String(value));
       }
       return params;
     } catch {
-      return new URLSearchParams();
+      /* not JSON after all; fall through */
     }
   }
-  return new URLSearchParams(req.rawBody ?? "");
+
+  return new URLSearchParams(raw);
 }
 
 /** Client credentials may arrive in the body or as HTTP Basic. */

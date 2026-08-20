@@ -14,7 +14,31 @@ export type VercelLikeResponse = ServerResponse;
  */
 export async function readRawBody(req: VercelLikeRequest): Promise<string> {
   if (typeof req.body === "string") return req.body;
-  if (req.body !== undefined && req.body !== null) return JSON.stringify(req.body);
+
+  if (req.body !== undefined && req.body !== null) {
+    // Vercel parses the body for us and drains the stream, so req.body is the
+    // only copy. Re-encode it in the format the request actually declared --
+    // JSON.stringify-ing a form body would produce something that neither a
+    // JSON parser nor URLSearchParams can read, which silently broke the OAuth
+    // token and authorize endpoints (both form-encoded) in production.
+    const contentType = (
+      Array.isArray(req.headers["content-type"]) ? req.headers["content-type"][0] : req.headers["content-type"]
+    ) ?? "";
+
+    if (contentType.includes("application/x-www-form-urlencoded") && typeof req.body === "object") {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(req.body as Record<string, unknown>)) {
+        if (Array.isArray(value)) {
+          for (const item of value) params.append(key, String(item));
+        } else if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      }
+      return params.toString();
+    }
+
+    return JSON.stringify(req.body);
+  }
 
   const chunks: Buffer[] = [];
   let size = 0;

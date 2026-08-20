@@ -23,7 +23,10 @@ function option(name: string): string | undefined {
 }
 
 const baseUrl = (option("url") ?? process.env.SMOKE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const password = option("password") ?? process.env.BOARD_PASSWORD;
+// Deliberately NOT falling back to process.env.BOARD_PASSWORD: that would send a
+// local development password to whatever remote host --url points at, and make
+// the output look like real failures when it did not match.
+const password = option("password");
 // Loopback, so a stray code cannot be delivered anywhere real.
 const REDIRECT_URI = "http://localhost:7777/callback";
 

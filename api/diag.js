@@ -965,20 +965,20 @@ function methodNotAllowed(allowed) {
   });
 }
 function parseBody(req) {
-  const contentType = req.headers["content-type"] ?? "";
-  if (contentType.includes("application/json")) {
+  const raw = req.rawBody ?? "";
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{")) {
     try {
-      const parsed = JSON.parse(req.rawBody || "{}");
+      const parsed = JSON.parse(trimmed);
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(parsed)) {
         if (value !== void 0 && value !== null) params.set(key, String(value));
       }
       return params;
     } catch {
-      return new URLSearchParams();
     }
   }
-  return new URLSearchParams(req.rawBody ?? "");
+  return new URLSearchParams(raw);
 }
 function clientCredentials(req, body) {
   const header = req.headers.authorization;
@@ -1553,7 +1553,21 @@ __export(vercel_exports, {
 });
 async function readRawBody(req) {
   if (typeof req.body === "string") return req.body;
-  if (req.body !== void 0 && req.body !== null) return JSON.stringify(req.body);
+  if (req.body !== void 0 && req.body !== null) {
+    const contentType = (Array.isArray(req.headers["content-type"]) ? req.headers["content-type"][0] : req.headers["content-type"]) ?? "";
+    if (contentType.includes("application/x-www-form-urlencoded") && typeof req.body === "object") {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(req.body)) {
+        if (Array.isArray(value)) {
+          for (const item of value) params.append(key, String(item));
+        } else if (value !== void 0 && value !== null) {
+          params.set(key, String(value));
+        }
+      }
+      return params.toString();
+    }
+    return JSON.stringify(req.body);
+  }
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {

@@ -797,3 +797,69 @@ describe("using an OAuth token against the board", () => {
     assert.equal(response.status, 200);
   });
 });
+
+describe("form bodies survive a platform that pre-parses them", () => {
+  /*
+   * Vercel parses an application/x-www-form-urlencoded body into an object and
+   * drains the stream, so req.body is the only copy. The adapter used to
+   * JSON.stringify whatever it found, which produced a string that neither a
+   * JSON parser nor URLSearchParams could read -- every form field arrived
+   * empty, and the authorize and token endpoints (both form-encoded) failed in
+   * production while working locally. These pin both halves of the fix.
+   */
+  it("re-encodes a pre-parsed form body as a form body", async () => {
+    const { readRawBody } = await import("../src/http/vercel");
+    const raw = await readRawBody({
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: { grant_type: "authorization_code", code: "abc", client_id: "sbc_x" },
+    } as never);
+
+    const params = new URLSearchParams(raw);
+    assert.equal(params.get("grant_type"), "authorization_code");
+    assert.equal(params.get("code"), "abc");
+    assert.equal(params.get("client_id"), "sbc_x");
+  });
+
+  it("still passes a pre-parsed JSON body through as JSON", async () => {
+    const { readRawBody } = await import("../src/http/vercel");
+    const raw = await readRawBody({
+      headers: { "content-type": "application/json" },
+      body: { redirect_uris: ["https://example.test/cb"] },
+    } as never);
+    assert.deepEqual(JSON.parse(raw).redirect_uris, ["https://example.test/cb"]);
+  });
+
+  it("reads a form body even when it arrives re-serialised as JSON", async () => {
+    // Belt and braces: the OAuth body parser decides on shape, not on the
+    // declared content type, so a platform that re-serialises cannot break it.
+    const { body: client } = await register();
+    const { challenge, verifier } = pkce();
+    const redirected = await submitPassword(
+      {
+        response_type: "code",
+        client_id: client.client_id,
+        redirect_uri: REDIRECT_URI,
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+      },
+      PASSWORD,
+    );
+    const code = new URL(redirected.headers.get("location") ?? "").searchParams.get("code") ?? "";
+
+    // Same fields, but sent as JSON while declaring a form content type.
+    const response = await fetch(server.origin + "/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: REDIRECT_URI,
+        client_id: client.client_id,
+        client_secret: client.client_secret,
+        code_verifier: verifier,
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.match(((await response.json()) as Record<string, any>).access_token, /^sba_/);
+  });
+});
